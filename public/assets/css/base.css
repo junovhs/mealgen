@@ -169,6 +169,65 @@ body::after {
     color: var(--text-primary);
 }
 
+/* Generator page */
+.generator-page {
+    padding-top: 3rem;
+    max-width: 560px;
+    margin: 0 auto;
+}
+.generator-header {
+    text-align: center;
+    margin-bottom: 2rem;
+}
+.generator-title {
+    font-family: var(--font-display);
+    font-weight: 800;
+    font-size: clamp(1.6rem, 5vw, 2.4rem);
+    letter-spacing: -0.02em;
+    margin-bottom: 0.25rem;
+}
+.generator-subtitle {
+    color: var(--text-soft);
+    font-size: 0.9rem;
+}
+.cuisine-section {
+    margin-bottom: 1.5rem;
+}
+.cuisine-label-text {
+    font-family: var(--font-mono);
+    font-size: 0.68rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-muted);
+}
+.cuisine-label-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.65rem;
+}
+.cuisine-compact-btn {
+    display: none; /* hidden on desktop */
+}
+.cuisine-lock-toggle {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    cursor: pointer;
+}
+.cuisine-pills-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.45rem;
+}
+.generate-btn {
+    width: 100%;
+    margin-bottom: 1.75rem;
+    font-size: 0.82rem;
+    padding: 0.9rem;
+}
+
 /* Footer */
 .footer-wrapper {
     background: var(--bg-surface);
@@ -234,12 +293,72 @@ body::after {
     }
 }
 
-/* Responsive */
+/* Responsive — tablets */
 @media (max-width: 768px) {
     .nav__links {
         gap: var(--space-md);
     }
     .section {
         padding: var(--space-lg) var(--space-md);
+    }
+}
+
+/* Responsive — iPhone SE / small phones (375×667) */
+@media (max-height: 700px) {
+    .generator-page {
+        padding-top: 0.5rem;
+    }
+    .section {
+        padding: 0.25rem var(--space-sm);
+    }
+    /* Title — compact single line */
+    .generator-header {
+        margin-bottom: 0.35rem;
+    }
+    .generator-title {
+        font-size: 1.2rem;
+        margin-bottom: 0;
+    }
+    .generator-subtitle {
+        display: none;
+    }
+    /* Cuisine — dropdown mode */
+    .cuisine-section {
+        margin-bottom: 0.35rem;
+    }
+    .cuisine-label-row {
+        margin-bottom: 0.25rem;
+    }
+    .cuisine-compact-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.25rem;
+        padding: 0.3rem 0.6rem;
+        border-radius: var(--radius-full);
+        border: 1.5px solid var(--border-subtle);
+        background: var(--bg-surface);
+        font-family: var(--font-body);
+        font-size: 0.78rem;
+        font-weight: 500;
+        color: var(--text-secondary);
+        cursor: pointer;
+    }
+    .cuisine-pills-row {
+        display: none;
+        flex-wrap: wrap;
+        gap: 0.3rem;
+        padding-top: 0.3rem;
+    }
+    .cuisine-pills-row--open {
+        display: flex;
+    }
+    .cuisine-lock-toggle {
+        display: none;
+    }
+    /* Generate button */
+    .generate-btn {
+        padding: 0.5rem;
+        margin-bottom: 0.4rem;
+        font-size: 0.7rem;
     }
 }

@@ -21,6 +21,7 @@ pub fn MealGenerator() -> Element {
     let mut show_veg2 = use_signal(|| false);
     let mut has_generated = use_signal(|| false);
     let editing = use_signal::<Option<&'static str>>(|| None);
+    let mut cuisine_open = use_signal(|| false);
 
     let ctx = SlotCtx { locks, selection, editing, cuisine, show_veg2 };
 
@@ -54,27 +55,35 @@ pub fn MealGenerator() -> Element {
     let toggle_knob = if *cuisine_lock.read() { "transform:translateX(1.25rem);" } else { "" };
 
     let cur = *cuisine.read();
+    let cur_label = cuisine_label(cur);
     let protein_alts = in_cuisine(cur, &get_proteins());
     let starch_alts = pairs_with_protein(selection.read().protein, cur, &get_starches(), &[]);
     let veg1_alts = pairs_with_protein(selection.read().protein, cur, &get_vegs(), &[]);
     let veg2_exc: Vec<&str> = selection.read().veg1.map(|v| v.id).into_iter().collect();
     let veg2_alts = pairs_with_protein(selection.read().protein, cur, &get_vegs(), &veg2_exc);
     let sauces: &[&str] = SAUCE_SUGGESTIONS.iter().find(|(c, _)| *c == cur).map(|(_, s)| *s).unwrap_or(&[]);
+    let pills_cls = if *cuisine_open.read() { "cuisine-pills-row cuisine-pills-row--open" } else { "cuisine-pills-row" };
 
     rsx! {
-        div { class: "section", style: "padding-top:5rem; max-width:560px; margin:0 auto;",
-            div { style: "text-align:center; margin-bottom:2.5rem; animation:fadeSlideUp 0.5s var(--ease-out) both;",
-                h1 { style: "font-family:var(--font-display); font-weight:800; font-size:clamp(1.6rem,5vw,2.4rem); letter-spacing:-0.02em; margin-bottom:0.25rem;",
-                    "Tell Me What's For Dinner"
+        div { class: "section generator-page",
+            div { class: "generator-header", style: "animation:fadeSlideUp 0.5s var(--ease-out) both;",
+                h1 { class: "generator-title",
+                    "What's For Dinner?"
                 }
-                p { style: "color:var(--text-soft); font-size:0.9rem;", "Protein + Starch + Veg" }
+                p { class: "generator-subtitle", "Protein + Starch + Veg" }
             }
 
             // Cuisine selector
-            div { style: "margin-bottom:1.5rem; animation:fadeSlideUp 0.5s var(--ease-out) 0.08s both;",
-                div { style: "display:flex; justify-content:space-between; align-items:center; margin-bottom:0.65rem;",
-                    span { style: "font-family:var(--font-mono); font-size:0.68rem; font-weight:600; text-transform:uppercase; letter-spacing:0.06em; color:var(--text-muted);", "Cuisine" }
-                    label { style: "display:flex; align-items:center; gap:0.5rem; cursor:pointer;",
+            div { class: "cuisine-section", style: "animation:fadeSlideUp 0.5s var(--ease-out) 0.08s both;",
+                div { class: "cuisine-label-row",
+                    span { class: "cuisine-label-text", "Cuisine" }
+                    // Compact mobile button — shows current cuisine
+                    button {
+                        class: "cuisine-compact-btn",
+                        onclick: move |_| cuisine_open.toggle(),
+                        "{cur_label} ▾"
+                    }
+                    label { class: "cuisine-lock-toggle",
                         span { style: "font-size:0.72rem; color:var(--text-dim); font-weight:500;",
                             if *cuisine_lock.read() { "Locked" } else { "Random" }
                         }
@@ -85,18 +94,18 @@ pub fn MealGenerator() -> Element {
                         }
                     }
                 }
-                div { style: "display:flex; flex-wrap:wrap; gap:0.45rem;",
+                div { class: "{pills_cls}",
                     for c in CUISINES.iter() {
                         { let cls = if *cuisine.read() == *c { "cuisine-pill cuisine-pill--active" } else { "cuisine-pill" };
                           let lbl = cuisine_label(c);
-                          rsx! { button { class: "{cls}", onclick: move |_| { cuisine.set(c); }, "{lbl}" } }
+                          rsx! { button { class: "{cls}", onclick: move |_| { cuisine.set(c); cuisine_open.set(false); }, "{lbl}" } }
                         }
                     }
                 }
             }
 
-            button { onclick: generate_meal, class: "btn btn--primary",
-                style: "width:100%; margin-bottom:1.75rem; font-size:0.82rem; padding:0.9rem; animation:fadeSlideUp 0.5s var(--ease-out) 0.14s both;",
+            button { onclick: generate_meal, class: "btn btn--primary generate-btn",
+                style: "animation:fadeSlideUp 0.5s var(--ease-out) 0.14s both;",
                 if *has_generated.read() { "Generate New Meal" } else { "Generate Meal" }
             }
 
@@ -104,22 +113,22 @@ pub fn MealGenerator() -> Element {
                 if let Some(desc) = describe_meal(&*selection.read()) {
                     p { class: "meal-desc", "{desc}" }
                 }
-                {render_slot("Protein", "protein", 0, protein_alts, ctx)}
-                {render_slot("Starch", "starch", 1, starch_alts, ctx)}
-                {render_slot("Vegetable", "veg1", 2, veg1_alts, ctx)}
+                {render_slot("Protein", "P", "protein", 0, protein_alts, ctx)}
+                {render_slot("Starch", "S", "starch", 1, starch_alts, ctx)}
+                {render_slot("Vegetable", "V", "veg1", 2, veg1_alts, ctx)}
                 if *show_veg2.read() {
-                    {render_slot("Extra Vegetable", "veg2", 3, veg2_alts, ctx)}
-                    button { class: "veg-toggle-btn", style: "margin-top:0.5rem;",
-                        onclick: move |_| show_veg2.set(false), "Remove Extra Vegetable"
+                    {render_slot("Extra Veg", "V₂", "veg2", 3, veg2_alts, ctx)}
+                    button { class: "veg-toggle-btn",
+                        onclick: move |_| show_veg2.set(false), "Remove Extra Veg"
                     }
                 } else {
                     button { class: "veg-toggle-btn",
-                        onclick: move |_| show_veg2.set(true), "+ Add Extra Vegetable"
+                        onclick: move |_| show_veg2.set(true), "+ Extra Veg"
                     }
                 }
                 if !sauces.is_empty() {
                     div { class: "seasoning",
-                        span { class: "seasoning__title", "Seasoning ideas · {cuisine_label(cur)}" }
+                        span { class: "seasoning__title", "Seasoning · {cur_label}" }
                         div { class: "seasoning__pills",
                             for sauce in sauces.iter() {
                                 span { class: "seasoning__pill", "{sauce}" }

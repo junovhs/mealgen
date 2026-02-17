@@ -1,5 +1,5 @@
 SLOPCHOP CHECK REPORT
-Generated: 2026-02-17 10:47:05
+Generated: 2026-02-17 11:14:31
 Status: FAILED
 
 === DASHBOARD ===
@@ -13,9 +13,9 @@ Top 5 Cognitive Complexity:
 Top 5 Largest Files (Tokens):
   1770  src\components\pages\meal_generator.rs
   1610  public\assets\css\base.css
-  1391  public\assets\css\components.css
+  1429  src\components\pages\meal_types.rs
+  1420  public\assets\css\components.css
   1355  src\components\pages\meal_slot.rs
-  1268  public\assets\css\slots.css
 
 === VIOLATIONS ===
 
@@ -34,41 +34,78 @@ error: unused import: `get_proteins`
   = note: `-D unused-imports` implied by `-D warnings`
   = help: to override `-D warnings` add `#[allow(unused_imports)]`
 
-error: this argument (4 byte) is passed by reference, but would be more efficient if passed by value (limit: 8 byte)
-  --> src\components\pages\meal_types.rs:77:25
+error: called `map(<f>).unwrap_or(<a>)` on an `Option` value
+  --> src\components\pages\meal_types.rs:66:28
    |
-77 | pub fn is_locked(locks: &LockState, field: &str) -> bool {
-   |                         ^^^^^^^^^^ help: consider passing by value instead: `LockState`
+66 |       let forward: &[&str] = protein
+   |  ____________________________^
+67 | |         .cuisines
+68 | |         .iter()
+69 | |         .find(|(cui, _)| *cui == c)
+70 | |         .map(|(_, pairs)| *pairs)
+71 | |         .unwrap_or(&[]);
+   | |_______________________^
    |
-   = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#trivially_copy_pass_by_ref
-   = note: `-D clippy::trivially-copy-pass-by-ref` implied by `-D warnings`
-   = help: to override `-D warnings` add `#[allow(clippy::trivially_copy_pass_by_ref)]`
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#map_unwrap_or
+   = note: `-D clippy::map-unwrap-or` implied by `-D warnings`
+   = help: to override `-D warnings` add `#[allow(clippy::map_unwrap_or)]`
+help: use `map_or(<a>, <f>)` instead
+   |
+70 -         .map(|(_, pairs)| *pairs)
+70 +         .map_or(&[], |(_, pairs)| *pairs);
+   |
+
+error: this `map_or` can be simplified
+  --> src\components\pages\meal_types.rs:83:13
+   |
+83 | /             i.cuisines
+84 | |                 .iter()
+85 | |                 .find(|(cui, _)| *cui == c)
+86 | |                 .map_or(false, |(_, pairs)| pairs.contains(&protein.id))
+   | |________________________________________________________________________^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#unnecessary_map_or
+   = note: `-D clippy::unnecessary-map-or` implied by `-D warnings`
+   = help: to override `-D warnings` add `#[allow(clippy::unnecessary_map_or)]`
+help: use is_some_and instead
+   |
+86 -                 .map_or(false, |(_, pairs)| pairs.contains(&protein.id))
+86 +                 .is_some_and(|(_, pairs)| pairs.contains(&protein.id))
+   |
 
 error: this argument (4 byte) is passed by reference, but would be more efficient if passed by value (limit: 8 byte)
-  --> src\components\pages\meal_types.rs:89:11
-   |
-89 |     lock: &LockState,
-   |           ^^^^^^^^^^ help: consider passing by value instead: `LockState`
-   |
-   = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#trivially_copy_pass_by_ref
+   --> src\components\pages\meal_types.rs:102:25
+    |
+102 | pub fn is_locked(locks: &LockState, field: &str) -> bool {
+    |                         ^^^^^^^^^^ help: consider passing by value instead: `LockState`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#trivially_copy_pass_by_ref
+    = note: `-D clippy::trivially-copy-pass-by-ref` implied by `-D warnings`
+    = help: to override `-D warnings` add `#[allow(clippy::trivially_copy_pass_by_ref)]`
+
+error: this argument (4 byte) is passed by reference, but would be more efficient if passed by value (limit: 8 byte)
+   --> src\components\pages\meal_types.rs:114:11
+    |
+114 |     lock: &LockState,
+    |           ^^^^^^^^^^ help: consider passing by value instead: `LockState`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#trivially_copy_pass_by_ref
 
 error: called `map(<f>).unwrap_or(<a>)` on an `Option` value
-   --> src\components\pages\meal_types.rs:113:5
+   --> src\components\pages\meal_types.rs:138:5
     |
-113 | /     CUISINE_LABELS
-114 | |         .iter()
-115 | |         .find(|(k, _)| *k == c)
-116 | |         .map(|(_, v)| *v)
-117 | |         .unwrap_or("Unknown")
+138 | /     CUISINE_LABELS
+139 | |         .iter()
+140 | |         .find(|(k, _)| *k == c)
+141 | |         .map(|(_, v)| *v)
+142 | |         .unwrap_or("Unknown")
     | |_____________________________^
     |
     = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#map_unwrap_or
-    = note: `-D clippy::map-unwrap-or` implied by `-D warnings`
-    = help: to override `-D warnings` add `#[allow(clippy::map_unwrap_or)]`
 help: use `map_or(<a>, <f>)` instead
     |
-116 -         .map(|(_, v)| *v)
-116 +         .map_or("Unknown", |(_, v)| *v)
+141 -         .map(|(_, v)| *v)
+141 +         .map_or("Unknown", |(_, v)| *v)
     |
 
 error: this argument is passed by value, but not consumed in the function body
@@ -140,9 +177,9 @@ error: deref which would be done by auto-deref
     |
     = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#explicit_auto_deref
 
-error: could not compile `mealgen` (bin "mealgen") due to 11 previous errors
+error: could not compile `mealgen` (bin "mealgen") due to 13 previous errors
 warning: build failed, waiting for other jobs to finish...
-error: could not compile `mealgen` (bin "mealgen" test) due to 11 previous errors
+error: could not compile `mealgen` (bin "mealgen" test) due to 13 previous errors
 
 
 === FULL OUTPUT LOGS ===
@@ -158,41 +195,78 @@ error: unused import: `get_proteins`
   = note: `-D unused-imports` implied by `-D warnings`
   = help: to override `-D warnings` add `#[allow(unused_imports)]`
 
-error: this argument (4 byte) is passed by reference, but would be more efficient if passed by value (limit: 8 byte)
-  --> src\components\pages\meal_types.rs:77:25
+error: called `map(<f>).unwrap_or(<a>)` on an `Option` value
+  --> src\components\pages\meal_types.rs:66:28
    |
-77 | pub fn is_locked(locks: &LockState, field: &str) -> bool {
-   |                         ^^^^^^^^^^ help: consider passing by value instead: `LockState`
+66 |       let forward: &[&str] = protein
+   |  ____________________________^
+67 | |         .cuisines
+68 | |         .iter()
+69 | |         .find(|(cui, _)| *cui == c)
+70 | |         .map(|(_, pairs)| *pairs)
+71 | |         .unwrap_or(&[]);
+   | |_______________________^
    |
-   = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#trivially_copy_pass_by_ref
-   = note: `-D clippy::trivially-copy-pass-by-ref` implied by `-D warnings`
-   = help: to override `-D warnings` add `#[allow(clippy::trivially_copy_pass_by_ref)]`
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#map_unwrap_or
+   = note: `-D clippy::map-unwrap-or` implied by `-D warnings`
+   = help: to override `-D warnings` add `#[allow(clippy::map_unwrap_or)]`
+help: use `map_or(<a>, <f>)` instead
+   |
+70 -         .map(|(_, pairs)| *pairs)
+70 +         .map_or(&[], |(_, pairs)| *pairs);
+   |
+
+error: this `map_or` can be simplified
+  --> src\components\pages\meal_types.rs:83:13
+   |
+83 | /             i.cuisines
+84 | |                 .iter()
+85 | |                 .find(|(cui, _)| *cui == c)
+86 | |                 .map_or(false, |(_, pairs)| pairs.contains(&protein.id))
+   | |________________________________________________________________________^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#unnecessary_map_or
+   = note: `-D clippy::unnecessary-map-or` implied by `-D warnings`
+   = help: to override `-D warnings` add `#[allow(clippy::unnecessary_map_or)]`
+help: use is_some_and instead
+   |
+86 -                 .map_or(false, |(_, pairs)| pairs.contains(&protein.id))
+86 +                 .is_some_and(|(_, pairs)| pairs.contains(&protein.id))
+   |
 
 error: this argument (4 byte) is passed by reference, but would be more efficient if passed by value (limit: 8 byte)
-  --> src\components\pages\meal_types.rs:89:11
-   |
-89 |     lock: &LockState,
-   |           ^^^^^^^^^^ help: consider passing by value instead: `LockState`
-   |
-   = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#trivially_copy_pass_by_ref
+   --> src\components\pages\meal_types.rs:102:25
+    |
+102 | pub fn is_locked(locks: &LockState, field: &str) -> bool {
+    |                         ^^^^^^^^^^ help: consider passing by value instead: `LockState`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#trivially_copy_pass_by_ref
+    = note: `-D clippy::trivially-copy-pass-by-ref` implied by `-D warnings`
+    = help: to override `-D warnings` add `#[allow(clippy::trivially_copy_pass_by_ref)]`
+
+error: this argument (4 byte) is passed by reference, but would be more efficient if passed by value (limit: 8 byte)
+   --> src\components\pages\meal_types.rs:114:11
+    |
+114 |     lock: &LockState,
+    |           ^^^^^^^^^^ help: consider passing by value instead: `LockState`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#trivially_copy_pass_by_ref
 
 error: called `map(<f>).unwrap_or(<a>)` on an `Option` value
-   --> src\components\pages\meal_types.rs:113:5
+   --> src\components\pages\meal_types.rs:138:5
     |
-113 | /     CUISINE_LABELS
-114 | |         .iter()
-115 | |         .find(|(k, _)| *k == c)
-116 | |         .map(|(_, v)| *v)
-117 | |         .unwrap_or("Unknown")
+138 | /     CUISINE_LABELS
+139 | |         .iter()
+140 | |         .find(|(k, _)| *k == c)
+141 | |         .map(|(_, v)| *v)
+142 | |         .unwrap_or("Unknown")
     | |_____________________________^
     |
     = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#map_unwrap_or
-    = note: `-D clippy::map-unwrap-or` implied by `-D warnings`
-    = help: to override `-D warnings` add `#[allow(clippy::map_unwrap_or)]`
 help: use `map_or(<a>, <f>)` instead
     |
-116 -         .map(|(_, v)| *v)
-116 +         .map_or("Unknown", |(_, v)| *v)
+141 -         .map(|(_, v)| *v)
+141 +         .map_or("Unknown", |(_, v)| *v)
     |
 
 error: this argument is passed by value, but not consumed in the function body
@@ -264,9 +338,9 @@ error: deref which would be done by auto-deref
     |
     = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#explicit_auto_deref
 
-error: could not compile `mealgen` (bin "mealgen") due to 11 previous errors
+error: could not compile `mealgen` (bin "mealgen") due to 13 previous errors
 warning: build failed, waiting for other jobs to finish...
-error: could not compile `mealgen` (bin "mealgen" test) due to 11 previous errors
+error: could not compile `mealgen` (bin "mealgen" test) due to 13 previous errors
 
 
 >>> COMMAND: cargo test
@@ -286,7 +360,7 @@ warning: unused import: `get_proteins`
   = note: `#[warn(unused_imports)]` on by default
 
 warning: `mealgen` (bin "mealgen" test) generated 1 warning (run `cargo fix --bin "mealgen" --tests` to apply 1 suggestion)
-    Finished `test` profile [unoptimized + debuginfo] target(s) in 1.32s
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1.79s
      Running unittests src\main.rs (target\debug\deps\mealgen-e5b4a321ff72f35d.exe)
 
 

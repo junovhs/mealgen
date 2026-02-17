@@ -12,11 +12,14 @@ use super::meal_types::{
 
 pub fn render_slot(
     label: &str,
+    short_label: &str,
     field: &'static str,
     index: u32,
     alternatives: Vec<&'static Ingredient>,
     mut ctx: SlotCtx,
 ) -> Element {
+    let mut reroll_count = use_signal(|| 0u32);
+
     let sel = *ctx.selection.read();
     let item = get_item(&sel, field);
     let locked = is_locked(&*ctx.locks.read(), field);
@@ -27,11 +30,14 @@ pub fn render_slot(
     let arrow_class = if is_editing { "meal-slot__name-arrow meal-slot__name-arrow--open" } else { "meal-slot__name-arrow" };
     let picker_class = if is_editing { "meal-slot__picker meal-slot__picker--open" } else { "meal-slot__picker" };
     let anim = format!("animation: slotReveal 0.45s var(--ease-out) {}ms both;", index * 70);
+    let reroll_cls = if *reroll_count.read() > 0 { "slot-btn slot-btn--rerolling" } else { "slot-btn" };
+    let reroll_key = format!("reroll-{field}-{}", *reroll_count.read());
 
     rsx! {
         div { class: "{card_class}", style: "{anim}",
             div { class: "meal-slot__header",
-                span { class: "meal-slot__label", "{label}" }
+                span { class: "meal-slot__label meal-slot__label--full", "{label}" }
+                span { class: "meal-slot__label meal-slot__label--short", "{short_label}" }
                 div { class: "meal-slot__actions",
                     button {
                         class: "{keep_class}",
@@ -49,9 +55,13 @@ pub fn render_slot(
                         if locked { "✦" } else { "◇" }
                     }
                     button {
-                        class: "slot-btn",
+                        key: "{reroll_key}",
+                        class: "{reroll_cls}",
                         title: "Re-roll",
-                        onclick: move |_| { reroll_field(field, ctx); },
+                        onclick: move |_| {
+                            reroll_count += 1;
+                            reroll_field(field, ctx);
+                        },
                         "↻"
                     }
                 }
@@ -70,11 +80,8 @@ pub fn render_slot(
                         "{i.name}"
                         span { class: "{arrow_class}", "▾" }
                     }
-                    if let Some(amt) = i.buy_amount {
-                        p { class: "meal-slot__buy", "Buy: {amt}" }
-                    }
                 } else {
-                    p { class: "meal-slot__empty", "None available" }
+                    p { class: "meal-slot__empty", "—" }
                 }
             }
             div { class: "{picker_class}",

@@ -42,13 +42,13 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 1.65rem;
-    height: 1.65rem;
+    width: 2.25rem;
+    height: 2.25rem;
     border-radius: var(--radius-sm);
     border: 1px solid transparent;
     background: transparent;
     cursor: pointer;
-    font-size: 0.85rem;
+    font-size: 1.1rem;
     color: var(--text-dim);
     transition:
         background 0.25s var(--ease-smooth),
@@ -65,9 +65,20 @@
     transform: scale(0.9) rotate(-45deg);
     transition-duration: 0.12s;
 }
+.slot-btn--rerolling {
+    animation: rerollShake 0.4s var(--ease-spring);
+}
+@keyframes rerollShake {
+    0%   { transform: rotate(0deg); }
+    20%  { transform: rotate(-12deg); }
+    40%  { transform: rotate(10deg); }
+    60%  { transform: rotate(-6deg); }
+    80%  { transform: rotate(3deg); }
+    100% { transform: rotate(0deg); }
+}
 
 .slot-btn--lock {
-    font-size: 0.7rem;
+    font-size: 0.9rem;
 }
 .slot-btn--lock:active {
     transform: scale(0.9);
@@ -180,4 +191,94 @@
 .meal-slot__option--active:hover {
     background: var(--accent-hover);
     color: #fff;
+}
+
+/* Label Visibility Base States */
+.meal-slot__label--short {
+    display: none;
+}
+.meal-slot__label--full {
+    display: block;
+}
+
+/* Responsive — iPhone SE / small phones */
+@media (max-height: 700px) {
+    .meal-slot {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.35rem 0.6rem;
+        margin-bottom: 0.35rem;
+        border-radius: var(--radius-sm);
+        background: var(--bg-surface);
+        border: 1px solid var(--border-subtle);
+    }
+    
+    /* Unwrap header and body containers to treat children as flex items of .meal-slot */
+    .meal-slot__header,
+    .meal-slot__body {
+        display: contents;
+    }
+
+    /* 1. Label (Short) */
+    .meal-slot__label--full {
+        display: none;
+    }
+    .meal-slot__label--short {
+        display: block;
+        order: 1;
+        font-family: var(--font-mono);
+        font-weight: 700;
+        color: var(--accent);
+        font-size: 0.8rem;
+        width: 1.2rem; /* Fixed width for alignment */
+    }
+
+    /* 2. Name */
+    .meal-slot__name {
+        order: 2;
+        flex: 1;
+        font-size: 0.9rem;
+        margin: 0;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    .meal-slot__empty {
+        order: 2;
+        flex: 1;
+        font-size: 0.9rem;
+        margin: 0;
+        color: var(--text-dim);
+    }
+    /* Hide the arrow and buy amount on mobile to save space */
+    .meal-slot__name-arrow,
+    .meal-slot__buy {
+        display: none;
+    }
+
+    /* 3. Actions */
+    .meal-slot__actions {
+        order: 3;
+        gap: 0.25rem;
+    }
+    .slot-btn {
+        width: 1.8rem;
+        height: 1.8rem;
+        font-size: 0.9rem;
+    }
+
+    /* 4. Picker (Full width new row) */
+    .meal-slot__picker {
+        order: 4;
+        width: 100%;
+        flex-basis: 100%;
+        padding: 0 !important; /* Override desktop padding */
+        border-top: none;
+    }
+    .meal-slot__picker--open {
+        padding-top: 0.5rem !important;
+        max-height: 160px;
+    }
 }

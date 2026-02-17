@@ -181,3 +181,34 @@
     background: var(--bg-hover);
     transform: translateY(-1px);
 }
+
+/* Responsive — iPhone SE / small phones */
+@media (max-height: 700px) {
+    .cuisine-pill {
+        padding: 0.35rem 0.75rem;
+        font-size: 0.78rem;
+    }
+    .meal-desc {
+        font-size: 0.85rem;
+        line-height: 1.5;
+        min-height: 3rem;
+        padding: 0.5rem 0.75rem;
+        margin-bottom: 0.6rem;
+    }
+    .veg-toggle-btn {
+        padding: 0.45rem;
+        font-size: 0.75rem;
+    }
+    .seasoning {
+        margin-top: 0.75rem;
+        padding-top: 0.6rem;
+    }
+    .seasoning__title {
+        font-size: 0.62rem;
+        margin-bottom: 0.35rem;
+    }
+    .seasoning__pill {
+        font-size: 0.72rem;
+        padding: 0.2rem 0.5rem;
+    }
+}
