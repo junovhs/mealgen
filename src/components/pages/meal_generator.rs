@@ -12,6 +12,8 @@ use super::meal_types::{
     SAUCE_SUGGESTIONS,
 };
 
+use super::icons::ICON_CHEVRON_DOWN;
+
 #[component]
 pub fn MealGenerator() -> Element {
     let mut cuisine = use_signal(|| CUISINES[0]);
@@ -81,7 +83,8 @@ pub fn MealGenerator() -> Element {
                     button {
                         class: "cuisine-compact-btn",
                         onclick: move |_| cuisine_open.toggle(),
-                        "{cur_label} ▾"
+                        "{cur_label}"
+                        span { class: "cuisine-compact-arrow", dangerous_inner_html: ICON_CHEVRON_DOWN }
                     }
                     label { class: "cuisine-lock-toggle",
                         span { style: "font-size:0.72rem; color:var(--text-dim); font-weight:500;",
@@ -111,7 +114,7 @@ pub fn MealGenerator() -> Element {
 
             if *has_generated.read() {
                 if let Some(desc) = describe_meal(&*selection.read()) {
-                    p { class: "meal-desc", "{desc}" }
+                    p { key: "{desc}", class: "meal-desc", "{desc}" }
                 }
                 {render_slot("Protein", "P", "protein", 0, protein_alts, ctx)}
                 {render_slot("Starch", "S", "starch", 1, starch_alts, ctx)}

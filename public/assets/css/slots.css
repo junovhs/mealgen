@@ -87,7 +87,15 @@
     color: var(--accent);
     background: var(--accent-dim);
     border-color: var(--accent-mid);
+    animation: lockSnap 0.35s var(--ease-spring);
 }
+@keyframes lockSnap {
+    0% { transform: scale(1); }
+    40% { transform: scale(1.15); }
+    70% { transform: scale(0.95); }
+    100% { transform: scale(1); }
+}
+
 .slot-btn--locked:hover {
     background: var(--accent-mid);
     color: var(--accent);

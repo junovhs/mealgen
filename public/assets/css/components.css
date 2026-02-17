@@ -118,7 +118,20 @@
     margin-bottom: 1.5rem;
     border-top: 1px solid var(--border-subtle);
     border-bottom: 1px solid var(--border-subtle);
-    animation: fadeIn 0.4s var(--ease-out) both;
+    animation: descCrossfade 0.5s var(--ease-out) both;
+}
+
+@keyframes descCrossfade {
+    from {
+        opacity: 0;
+        filter: blur(4px);
+        transform: translateY(4px);
+    }
+    to {
+        opacity: 1;
+        filter: blur(0);
+        transform: translateY(0);
+    }
 }
 
 /* Add/Remove Extra Veg */

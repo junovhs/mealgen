@@ -10,6 +10,8 @@ use super::meal_types::{
     pairs_with_protein, SlotCtx,
 };
 
+use super::icons::{ICON_LOCK, ICON_UNLOCK, ICON_REROLL, ICON_CHEVRON_DOWN};
+
 pub fn render_slot(
     label: &str,
     short_label: &str,
@@ -52,7 +54,7 @@ pub fn render_slot(
                                 _ => {}
                             }
                         },
-                        if locked { "✦" } else { "◇" }
+                        span { dangerous_inner_html: if locked { ICON_LOCK } else { ICON_UNLOCK } }
                     }
                     button {
                         key: "{reroll_key}",
@@ -62,7 +64,7 @@ pub fn render_slot(
                             reroll_count += 1;
                             reroll_field(field, ctx);
                         },
-                        "↻"
+                        span { dangerous_inner_html: ICON_REROLL }
                     }
                 }
             }
@@ -78,7 +80,7 @@ pub fn render_slot(
                             }
                         },
                         "{i.name}"
-                        span { class: "{arrow_class}", "▾" }
+                        span { class: "{arrow_class}", dangerous_inner_html: ICON_CHEVRON_DOWN }
                     }
                 } else {
                     p { class: "meal-slot__empty", "—" }
