@@ -1,346 +1,29 @@
 SLOPCHOP CHECK REPORT
-Generated: 2026-02-17 11:14:31
-Status: FAILED
+Generated: 2026-02-17 12:18:16
+Status: PASSED
 
 === DASHBOARD ===
 Top 5 Cognitive Complexity:
-  7    src\components\pages\meal_generator.rs
+  15   src\components\pages\generator_logic.rs
+  8    src\components\pages\meal_generator.rs
   6    src\components\pages\meal_slot.rs
   6    src\components\pages\meal_types.rs
   0    Cargo.toml
-  0    Dioxus.toml
 
 Top 5 Largest Files (Tokens):
-  1770  src\components\pages\meal_generator.rs
-  1610  public\assets\css\base.css
-  1429  src\components\pages\meal_types.rs
-  1420  public\assets\css\components.css
-  1355  src\components\pages\meal_slot.rs
+  1860  src\components\pages\meal_slot.rs
+  1786  src\components\pages\meal_generator.rs
+  1709  public\assets\css\components.css
+  1628  public\assets\css\base.css
+  1623  public\assets\css\slots.css
 
 === VIOLATIONS ===
-
-[External Tools]
-FAILED: cargo clippy --all-targets -- -D warnings -W clippy::pedantic -W clippy::unwrap_used -W clippy::expect_used -W clippy::indexing_slicing -A clippy::struct_excessive_bools -A clippy::module_name_repetitions -A clippy::missing_errors_doc -A clippy::must_use_candidate (Exit Code: 101)
--- STDOUT --
-
--- STDERR --
-    Checking mealgen v0.1.0 (C:\Users\SpencerNunamakerTrav\mealgen)
-error: unused import: `get_proteins`
- --> src\components\pages\meal_types.rs:7:5
-  |
-7 |     get_proteins, get_starches, get_vegs, Ingredient, CUISINE_LABELS,
-  |     ^^^^^^^^^^^^
-  |
-  = note: `-D unused-imports` implied by `-D warnings`
-  = help: to override `-D warnings` add `#[allow(unused_imports)]`
-
-error: called `map(<f>).unwrap_or(<a>)` on an `Option` value
-  --> src\components\pages\meal_types.rs:66:28
-   |
-66 |       let forward: &[&str] = protein
-   |  ____________________________^
-67 | |         .cuisines
-68 | |         .iter()
-69 | |         .find(|(cui, _)| *cui == c)
-70 | |         .map(|(_, pairs)| *pairs)
-71 | |         .unwrap_or(&[]);
-   | |_______________________^
-   |
-   = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#map_unwrap_or
-   = note: `-D clippy::map-unwrap-or` implied by `-D warnings`
-   = help: to override `-D warnings` add `#[allow(clippy::map_unwrap_or)]`
-help: use `map_or(<a>, <f>)` instead
-   |
-70 -         .map(|(_, pairs)| *pairs)
-70 +         .map_or(&[], |(_, pairs)| *pairs);
-   |
-
-error: this `map_or` can be simplified
-  --> src\components\pages\meal_types.rs:83:13
-   |
-83 | /             i.cuisines
-84 | |                 .iter()
-85 | |                 .find(|(cui, _)| *cui == c)
-86 | |                 .map_or(false, |(_, pairs)| pairs.contains(&protein.id))
-   | |________________________________________________________________________^
-   |
-   = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#unnecessary_map_or
-   = note: `-D clippy::unnecessary-map-or` implied by `-D warnings`
-   = help: to override `-D warnings` add `#[allow(clippy::unnecessary_map_or)]`
-help: use is_some_and instead
-   |
-86 -                 .map_or(false, |(_, pairs)| pairs.contains(&protein.id))
-86 +                 .is_some_and(|(_, pairs)| pairs.contains(&protein.id))
-   |
-
-error: this argument (4 byte) is passed by reference, but would be more efficient if passed by value (limit: 8 byte)
-   --> src\components\pages\meal_types.rs:102:25
-    |
-102 | pub fn is_locked(locks: &LockState, field: &str) -> bool {
-    |                         ^^^^^^^^^^ help: consider passing by value instead: `LockState`
-    |
-    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#trivially_copy_pass_by_ref
-    = note: `-D clippy::trivially-copy-pass-by-ref` implied by `-D warnings`
-    = help: to override `-D warnings` add `#[allow(clippy::trivially_copy_pass_by_ref)]`
-
-error: this argument (4 byte) is passed by reference, but would be more efficient if passed by value (limit: 8 byte)
-   --> src\components\pages\meal_types.rs:114:11
-    |
-114 |     lock: &LockState,
-    |           ^^^^^^^^^^ help: consider passing by value instead: `LockState`
-    |
-    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#trivially_copy_pass_by_ref
-
-error: called `map(<f>).unwrap_or(<a>)` on an `Option` value
-   --> src\components\pages\meal_types.rs:138:5
-    |
-138 | /     CUISINE_LABELS
-139 | |         .iter()
-140 | |         .find(|(k, _)| *k == c)
-141 | |         .map(|(_, v)| *v)
-142 | |         .unwrap_or("Unknown")
-    | |_____________________________^
-    |
-    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#map_unwrap_or
-help: use `map_or(<a>, <f>)` instead
-    |
-141 -         .map(|(_, v)| *v)
-141 +         .map_or("Unknown", |(_, v)| *v)
-    |
-
-error: this argument is passed by value, but not consumed in the function body
-  --> src\components\pages\meal_slot.rs:17:19
-   |
-17 |     alternatives: Vec<&'static Ingredient>,
-   |                   ^^^^^^^^^^^^^^^^^^^^^^^^ help: consider changing the type to: `&[&'static Ingredient]`
-   |
-   = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#needless_pass_by_value
-   = note: `-D clippy::needless-pass-by-value` implied by `-D warnings`
-   = help: to override `-D warnings` add `#[allow(clippy::needless_pass_by_value)]`
-
-error: deref which would be done by auto-deref
-  --> src\components\pages\meal_slot.rs:22:28
-   |
-22 |     let locked = is_locked(&*ctx.locks.read(), field);
-   |                            ^^^^^^^^^^^^^^^^^^ help: try: `&ctx.locks.read()`
-   |
-   = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#explicit_auto_deref
-   = note: `-D clippy::explicit-auto-deref` implied by `-D warnings`
-   = help: to override `-D warnings` add `#[allow(clippy::explicit_auto_deref)]`
-
-error: deref which would be done by auto-deref
-  --> src\components\pages\meal_slot.rs:83:40
-   |
-83 |                         {render_option(*alt, item, field, ctx)}
-   |                                        ^^^^ help: try: `alt`
-   |
-   = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#explicit_auto_deref
-
-error: indexing may panic
-  --> src\components\pages\meal_generator.rs:17:37
-   |
-17 |     let mut cuisine = use_signal(|| CUISINES[0]);
-   |                                     ^^^^^^^^^^^
-   |
-   = help: consider using `.get(n)` or `.get_mut(n)` instead
-   = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#indexing_slicing
-   = note: `-D clippy::indexing-slicing` implied by `-D warnings`
-   = help: to override `-D warnings` add `#[allow(clippy::indexing_slicing)]`
-
-error: indexing may panic
-  --> src\components\pages\meal_generator.rs:33:63
-   |
-33 |             let new_c = *CUISINES.choose(&mut rng).unwrap_or(&CUISINES[0]);
-   |                                                               ^^^^^^^^^^^
-   |
-   = help: consider using `.get(n)` or `.get_mut(n)` instead
-   = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#indexing_slicing
-
-error: called `map(<f>).unwrap_or(<a>)` on an `Option` value
-  --> src\components\pages\meal_generator.rs:62:27
-   |
-62 |     let sauces: &[&str] = SAUCE_SUGGESTIONS.iter().find(|(c, _)| *c == cur).map(|(_, s)| *s).unwrap_or(&[]);
-   |                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-   |
-   = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#map_unwrap_or
-help: use `map_or(<a>, <f>)` instead
-   |
-62 -     let sauces: &[&str] = SAUCE_SUGGESTIONS.iter().find(|(c, _)| *c == cur).map(|(_, s)| *s).unwrap_or(&[]);
-62 +     let sauces: &[&str] = SAUCE_SUGGESTIONS.iter().find(|(c, _)| *c == cur).map_or(&[], |(_, s)| *s);
-   |
-
-error: deref which would be done by auto-deref
-   --> src\components\pages\meal_generator.rs:104:51
-    |
-104 |                 if let Some(desc) = describe_meal(&*selection.read()) {
-    |                                                   ^^^^^^^^^^^^^^^^^^ help: try: `&selection.read()`
-    |
-    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#explicit_auto_deref
-
-error: could not compile `mealgen` (bin "mealgen") due to 13 previous errors
-warning: build failed, waiting for other jobs to finish...
-error: could not compile `mealgen` (bin "mealgen" test) due to 13 previous errors
-
+None. Codebase is clean.
 
 === FULL OUTPUT LOGS ===
 
 >>> COMMAND: cargo clippy --all-targets -- -D warnings -W clippy::pedantic -W clippy::unwrap_used -W clippy::expect_used -W clippy::indexing_slicing -A clippy::struct_excessive_bools -A clippy::module_name_repetitions -A clippy::missing_errors_doc -A clippy::must_use_candidate
-    Checking mealgen v0.1.0 (C:\Users\SpencerNunamakerTrav\mealgen)
-error: unused import: `get_proteins`
- --> src\components\pages\meal_types.rs:7:5
-  |
-7 |     get_proteins, get_starches, get_vegs, Ingredient, CUISINE_LABELS,
-  |     ^^^^^^^^^^^^
-  |
-  = note: `-D unused-imports` implied by `-D warnings`
-  = help: to override `-D warnings` add `#[allow(unused_imports)]`
-
-error: called `map(<f>).unwrap_or(<a>)` on an `Option` value
-  --> src\components\pages\meal_types.rs:66:28
-   |
-66 |       let forward: &[&str] = protein
-   |  ____________________________^
-67 | |         .cuisines
-68 | |         .iter()
-69 | |         .find(|(cui, _)| *cui == c)
-70 | |         .map(|(_, pairs)| *pairs)
-71 | |         .unwrap_or(&[]);
-   | |_______________________^
-   |
-   = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#map_unwrap_or
-   = note: `-D clippy::map-unwrap-or` implied by `-D warnings`
-   = help: to override `-D warnings` add `#[allow(clippy::map_unwrap_or)]`
-help: use `map_or(<a>, <f>)` instead
-   |
-70 -         .map(|(_, pairs)| *pairs)
-70 +         .map_or(&[], |(_, pairs)| *pairs);
-   |
-
-error: this `map_or` can be simplified
-  --> src\components\pages\meal_types.rs:83:13
-   |
-83 | /             i.cuisines
-84 | |                 .iter()
-85 | |                 .find(|(cui, _)| *cui == c)
-86 | |                 .map_or(false, |(_, pairs)| pairs.contains(&protein.id))
-   | |________________________________________________________________________^
-   |
-   = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#unnecessary_map_or
-   = note: `-D clippy::unnecessary-map-or` implied by `-D warnings`
-   = help: to override `-D warnings` add `#[allow(clippy::unnecessary_map_or)]`
-help: use is_some_and instead
-   |
-86 -                 .map_or(false, |(_, pairs)| pairs.contains(&protein.id))
-86 +                 .is_some_and(|(_, pairs)| pairs.contains(&protein.id))
-   |
-
-error: this argument (4 byte) is passed by reference, but would be more efficient if passed by value (limit: 8 byte)
-   --> src\components\pages\meal_types.rs:102:25
-    |
-102 | pub fn is_locked(locks: &LockState, field: &str) -> bool {
-    |                         ^^^^^^^^^^ help: consider passing by value instead: `LockState`
-    |
-    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#trivially_copy_pass_by_ref
-    = note: `-D clippy::trivially-copy-pass-by-ref` implied by `-D warnings`
-    = help: to override `-D warnings` add `#[allow(clippy::trivially_copy_pass_by_ref)]`
-
-error: this argument (4 byte) is passed by reference, but would be more efficient if passed by value (limit: 8 byte)
-   --> src\components\pages\meal_types.rs:114:11
-    |
-114 |     lock: &LockState,
-    |           ^^^^^^^^^^ help: consider passing by value instead: `LockState`
-    |
-    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#trivially_copy_pass_by_ref
-
-error: called `map(<f>).unwrap_or(<a>)` on an `Option` value
-   --> src\components\pages\meal_types.rs:138:5
-    |
-138 | /     CUISINE_LABELS
-139 | |         .iter()
-140 | |         .find(|(k, _)| *k == c)
-141 | |         .map(|(_, v)| *v)
-142 | |         .unwrap_or("Unknown")
-    | |_____________________________^
-    |
-    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#map_unwrap_or
-help: use `map_or(<a>, <f>)` instead
-    |
-141 -         .map(|(_, v)| *v)
-141 +         .map_or("Unknown", |(_, v)| *v)
-    |
-
-error: this argument is passed by value, but not consumed in the function body
-  --> src\components\pages\meal_slot.rs:17:19
-   |
-17 |     alternatives: Vec<&'static Ingredient>,
-   |                   ^^^^^^^^^^^^^^^^^^^^^^^^ help: consider changing the type to: `&[&'static Ingredient]`
-   |
-   = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#needless_pass_by_value
-   = note: `-D clippy::needless-pass-by-value` implied by `-D warnings`
-   = help: to override `-D warnings` add `#[allow(clippy::needless_pass_by_value)]`
-
-error: deref which would be done by auto-deref
-  --> src\components\pages\meal_slot.rs:22:28
-   |
-22 |     let locked = is_locked(&*ctx.locks.read(), field);
-   |                            ^^^^^^^^^^^^^^^^^^ help: try: `&ctx.locks.read()`
-   |
-   = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#explicit_auto_deref
-   = note: `-D clippy::explicit-auto-deref` implied by `-D warnings`
-   = help: to override `-D warnings` add `#[allow(clippy::explicit_auto_deref)]`
-
-error: deref which would be done by auto-deref
-  --> src\components\pages\meal_slot.rs:83:40
-   |
-83 |                         {render_option(*alt, item, field, ctx)}
-   |                                        ^^^^ help: try: `alt`
-   |
-   = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#explicit_auto_deref
-
-error: indexing may panic
-  --> src\components\pages\meal_generator.rs:17:37
-   |
-17 |     let mut cuisine = use_signal(|| CUISINES[0]);
-   |                                     ^^^^^^^^^^^
-   |
-   = help: consider using `.get(n)` or `.get_mut(n)` instead
-   = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#indexing_slicing
-   = note: `-D clippy::indexing-slicing` implied by `-D warnings`
-   = help: to override `-D warnings` add `#[allow(clippy::indexing_slicing)]`
-
-error: indexing may panic
-  --> src\components\pages\meal_generator.rs:33:63
-   |
-33 |             let new_c = *CUISINES.choose(&mut rng).unwrap_or(&CUISINES[0]);
-   |                                                               ^^^^^^^^^^^
-   |
-   = help: consider using `.get(n)` or `.get_mut(n)` instead
-   = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#indexing_slicing
-
-error: called `map(<f>).unwrap_or(<a>)` on an `Option` value
-  --> src\components\pages\meal_generator.rs:62:27
-   |
-62 |     let sauces: &[&str] = SAUCE_SUGGESTIONS.iter().find(|(c, _)| *c == cur).map(|(_, s)| *s).unwrap_or(&[]);
-   |                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-   |
-   = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#map_unwrap_or
-help: use `map_or(<a>, <f>)` instead
-   |
-62 -     let sauces: &[&str] = SAUCE_SUGGESTIONS.iter().find(|(c, _)| *c == cur).map(|(_, s)| *s).unwrap_or(&[]);
-62 +     let sauces: &[&str] = SAUCE_SUGGESTIONS.iter().find(|(c, _)| *c == cur).map_or(&[], |(_, s)| *s);
-   |
-
-error: deref which would be done by auto-deref
-   --> src\components\pages\meal_generator.rs:104:51
-    |
-104 |                 if let Some(desc) = describe_meal(&*selection.read()) {
-    |                                                   ^^^^^^^^^^^^^^^^^^ help: try: `&selection.read()`
-    |
-    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#explicit_auto_deref
-
-error: could not compile `mealgen` (bin "mealgen") due to 13 previous errors
-warning: build failed, waiting for other jobs to finish...
-error: could not compile `mealgen` (bin "mealgen" test) due to 13 previous errors
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.37s
 
 
 >>> COMMAND: cargo test
@@ -350,17 +33,7 @@ running 0 tests
 test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
 
 
-   Compiling mealgen v0.1.0 (C:\Users\SpencerNunamakerTrav\mealgen)
-warning: unused import: `get_proteins`
- --> src\components\pages\meal_types.rs:7:5
-  |
-7 |     get_proteins, get_starches, get_vegs, Ingredient, CUISINE_LABELS,
-  |     ^^^^^^^^^^^^
-  |
-  = note: `#[warn(unused_imports)]` on by default
-
-warning: `mealgen` (bin "mealgen" test) generated 1 warning (run `cargo fix --bin "mealgen" --tests` to apply 1 suggestion)
-    Finished `test` profile [unoptimized + debuginfo] target(s) in 1.79s
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.36s
      Running unittests src\main.rs (target\debug\deps\mealgen-e5b4a321ff72f35d.exe)
 
 

@@ -8,15 +8,16 @@ use crate::content::{get_proteins, get_starches, get_vegs, CUISINES};
 use super::meal_slot::render_slot;
 use super::meal_types::{
     cascade_from_protein, cuisine_label, describe_meal, in_cuisine,
-    pairs_with_protein, LockState, MealSelection, SlotCtx,
+    LockState, MealSelection, SlotCtx,
     SAUCE_SUGGESTIONS,
 };
+use super::generator_logic::generate_slot_options;
 
 use super::icons::ICON_CHEVRON_DOWN;
 
 #[component]
 pub fn MealGenerator() -> Element {
-    let mut cuisine = use_signal(|| CUISINES[0]);
+    let mut cuisine = use_signal(|| *CUISINES.first().unwrap_or(&"american"));
     let mut cuisine_lock = use_signal(|| false);
     let mut selection = use_signal(MealSelection::default);
     let locks = use_signal(LockState::default);
@@ -33,7 +34,7 @@ pub fn MealGenerator() -> Element {
             *cuisine.read()
         } else {
             let mut rng = rand::thread_rng();
-            let new_c = *CUISINES.choose(&mut rng).unwrap_or(&CUISINES[0]);
+            let new_c = *CUISINES.choose(&mut rng).unwrap_or_else(|| CUISINES.first().unwrap_or(&"american"));
             cuisine.set(new_c);
             new_c
         };
@@ -48,7 +49,7 @@ pub fn MealGenerator() -> Element {
         if lock.starch { sel.starch = selection.read().starch; }
         if lock.veg1 { sel.veg1 = selection.read().veg1; }
         if lock.veg2 { sel.veg2 = selection.read().veg2; }
-        cascade_from_protein(&mut sel, &lock, current_cuisine, *show_veg2.read());
+        cascade_from_protein(&mut sel, lock, current_cuisine, *show_veg2.read());
         selection.set(sel);
         has_generated.set(true);
     };
@@ -58,12 +59,39 @@ pub fn MealGenerator() -> Element {
 
     let cur = *cuisine.read();
     let cur_label = cuisine_label(cur);
-    let protein_alts = in_cuisine(cur, &get_proteins());
-    let starch_alts = pairs_with_protein(selection.read().protein, cur, &get_starches(), &[]);
-    let veg1_alts = pairs_with_protein(selection.read().protein, cur, &get_vegs(), &[]);
-    let veg2_exc: Vec<&str> = selection.read().veg1.map(|v| v.id).into_iter().collect();
-    let veg2_alts = pairs_with_protein(selection.read().protein, cur, &get_vegs(), &veg2_exc);
-    let sauces: &[&str] = SAUCE_SUGGESTIONS.iter().find(|(c, _)| *c == cur).map(|(_, s)| *s).unwrap_or(&[]);
+    let sel_val = *selection.read();
+
+    // Generate option lists with compatibility metadata
+    let protein_alts = generate_slot_options(
+        &get_proteins(),
+        None, // Proteins check against cuisine directly
+        cur,
+        &[],
+    );
+
+    let starch_alts = generate_slot_options(
+        &get_starches(),
+        sel_val.protein,
+        cur,
+        &[],
+    );
+
+    let veg1_alts = generate_slot_options(
+        &get_vegs(),
+        sel_val.protein,
+        cur,
+        &[],
+    );
+
+    let veg2_exc: Vec<&str> = sel_val.veg1.map(|v| v.id).into_iter().collect();
+    let veg2_alts = generate_slot_options(
+        &get_vegs(),
+        sel_val.protein,
+        cur,
+        &veg2_exc,
+    );
+
+    let sauces: &[&str] = SAUCE_SUGGESTIONS.iter().find(|(c, _)| *c == cur).map_or(&[], |(_, s)| *s);
     let pills_cls = if *cuisine_open.read() { "cuisine-pills-row cuisine-pills-row--open" } else { "cuisine-pills-row" };
 
     rsx! {
@@ -113,7 +141,7 @@ pub fn MealGenerator() -> Element {
             }
 
             if *has_generated.read() {
-                if let Some(desc) = describe_meal(&*selection.read()) {
+                if let Some(desc) = describe_meal(&selection.read()) {
                     p { key: "{desc}", class: "meal-desc", "{desc}" }
                 }
                 {render_slot("Protein", "P", "protein", 0, protein_alts, ctx)}
@@ -143,3 +171,5 @@ pub fn MealGenerator() -> Element {
         }
     }
 }
+
+

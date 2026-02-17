@@ -3,6 +3,7 @@
 mod meal_types;
 mod meal_slot;
 mod meal_generator;
+mod generator_logic;
 mod icons;
 
 pub use meal_generator::MealGenerator;

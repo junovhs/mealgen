@@ -3,9 +3,7 @@
 use dioxus::prelude::*;
 use rand::seq::SliceRandom;
 
-use crate::content::{
-    get_proteins, get_starches, get_vegs, Ingredient, CUISINE_LABELS,
-};
+use crate::content::{Ingredient, CUISINE_LABELS, get_starches, get_vegs};
 
 pub static SAUCE_SUGGESTIONS: &[(&str, &[&str])] = &[
     ("american", &["garlic butter", "salt & pepper", "herb seasoning", "ranch", "gravy", "mustard"]),
@@ -21,6 +19,14 @@ pub struct MealSelection {
     pub starch: Option<&'static Ingredient>,
     pub veg1: Option<&'static Ingredient>,
     pub veg2: Option<&'static Ingredient>,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct SlotOption {
+    pub ingredient: &'static Ingredient,
+    pub is_compatible: bool,
+    pub target_cuisine: Option<&'static str>,
+    pub clear_protein: bool,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Default)]
@@ -67,8 +73,7 @@ pub fn pairs_with_protein(
         .cuisines
         .iter()
         .find(|(cui, _)| *cui == c)
-        .map(|(_, pairs)| *pairs)
-        .unwrap_or(&[]);
+        .map_or(&[], |(_, pairs)| *pairs);
 
     list.iter()
         .filter(|i| {
@@ -83,7 +88,7 @@ pub fn pairs_with_protein(
             i.cuisines
                 .iter()
                 .find(|(cui, _)| *cui == c)
-                .map_or(false, |(_, pairs)| pairs.contains(&protein.id))
+                .is_some_and(|(_, pairs)| pairs.contains(&protein.id))
         })
         .copied()
         .collect()
@@ -99,7 +104,7 @@ pub fn get_item(sel: &MealSelection, field: &str) -> Option<&'static Ingredient>
     }
 }
 
-pub fn is_locked(locks: &LockState, field: &str) -> bool {
+pub fn is_locked(locks: LockState, field: &str) -> bool {
     match field {
         "protein" => locks.protein,
         "starch" => locks.starch,
@@ -111,7 +116,7 @@ pub fn is_locked(locks: &LockState, field: &str) -> bool {
 
 pub fn cascade_from_protein(
     sel: &mut MealSelection,
-    lock: &LockState,
+    lock: LockState,
     cuisine: &str,
     has_veg2: bool,
 ) {
@@ -138,8 +143,7 @@ pub fn cuisine_label(c: &str) -> &'static str {
     CUISINE_LABELS
         .iter()
         .find(|(k, _)| *k == c)
-        .map(|(_, v)| *v)
-        .unwrap_or("Unknown")
+        .map_or("Unknown", |(_, v)| *v)
 }
 
 pub fn describe_meal(sel: &MealSelection) -> Option<String> {
@@ -159,3 +163,5 @@ pub fn describe_meal(sel: &MealSelection) -> Option<String> {
         )),
     }
 }
+
+
