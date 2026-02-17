@@ -1,0 +1,11 @@
+[application]
+name = "mealgen"
+default_platform = "web"
+
+[web.app]
+title = "Meal Generator"
+base_path = "/"
+
+[web.resource.dev]
+style = []
+script = []
