@@ -3,7 +3,6 @@
 mod components;
 mod content;
 
-use components::layout::{Footer, Nav};
 use components::pages::{MealGenerator, NotFound};
 use dioxus::prelude::*;
 

@@ -1,4 +1,4 @@
-// Content Module
+// Content Module — The "CMS" Data Layer
 
 mod meal_data;
 
