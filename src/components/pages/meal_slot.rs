@@ -1,0 +1,158 @@
+#![allow(non_snake_case)]
+
+use dioxus::prelude::*;
+use rand::seq::SliceRandom;
+
+use crate::content::{get_proteins, get_starches, get_vegs, Ingredient};
+
+use super::meal_types::{
+    cascade_from_protein, get_item, in_cuisine, is_locked,
+    pairs_with_protein, SlotCtx,
+};
+
+pub fn render_slot(
+    label: &str,
+    field: &'static str,
+    index: u32,
+    alternatives: Vec<&'static Ingredient>,
+    mut ctx: SlotCtx,
+) -> Element {
+    let sel = *ctx.selection.read();
+    let item = get_item(&sel, field);
+    let locked = is_locked(&*ctx.locks.read(), field);
+    let is_editing = *ctx.editing.read() == Some(field);
+
+    let card_class = if locked { "meal-slot meal-slot--locked" } else { "meal-slot" };
+    let keep_class = if locked { "slot-btn slot-btn--lock slot-btn--locked" } else { "slot-btn slot-btn--lock" };
+    let arrow_class = if is_editing { "meal-slot__name-arrow meal-slot__name-arrow--open" } else { "meal-slot__name-arrow" };
+    let picker_class = if is_editing { "meal-slot__picker meal-slot__picker--open" } else { "meal-slot__picker" };
+    let anim = format!("animation: slotReveal 0.45s var(--ease-out) {}ms both;", index * 70);
+
+    rsx! {
+        div { class: "{card_class}", style: "{anim}",
+            div { class: "meal-slot__header",
+                span { class: "meal-slot__label", "{label}" }
+                div { class: "meal-slot__actions",
+                    button {
+                        class: "{keep_class}",
+                        title: if locked { "Unlock" } else { "Keep this" },
+                        onclick: move |_| {
+                            let mut w = ctx.locks.write();
+                            match field {
+                                "protein" => w.protein = !w.protein,
+                                "starch" => w.starch = !w.starch,
+                                "veg1" => w.veg1 = !w.veg1,
+                                "veg2" => w.veg2 = !w.veg2,
+                                _ => {}
+                            }
+                        },
+                        if locked { "✦" } else { "◇" }
+                    }
+                    button {
+                        class: "slot-btn",
+                        title: "Re-roll",
+                        onclick: move |_| { reroll_field(field, ctx); },
+                        "↻"
+                    }
+                }
+            }
+            div { class: "meal-slot__body",
+                if let Some(i) = item {
+                    span {
+                        class: "meal-slot__name",
+                        onclick: move |_| {
+                            if *ctx.editing.read() == Some(field) {
+                                ctx.editing.set(None);
+                            } else {
+                                ctx.editing.set(Some(field));
+                            }
+                        },
+                        "{i.name}"
+                        span { class: "{arrow_class}", "▾" }
+                    }
+                    if let Some(amt) = i.buy_amount {
+                        p { class: "meal-slot__buy", "Buy: {amt}" }
+                    }
+                } else {
+                    p { class: "meal-slot__empty", "None available" }
+                }
+            }
+            div { class: "{picker_class}",
+                div { class: "meal-slot__picker-grid",
+                    for alt in alternatives.iter() {
+                        {render_option(*alt, item, field, ctx)}
+                    }
+                }
+            }
+        }
+    }
+}
+
+fn render_option(
+    ingredient: &'static Ingredient,
+    current: Option<&'static Ingredient>,
+    field: &'static str,
+    mut ctx: SlotCtx,
+) -> Element {
+    let cls = if current == Some(ingredient) {
+        "meal-slot__option meal-slot__option--active"
+    } else {
+        "meal-slot__option"
+    };
+
+    rsx! {
+        button {
+            class: "{cls}",
+            onclick: move |_| {
+                let c = *ctx.cuisine.read();
+                let lock = *ctx.locks.read();
+                let sv2 = *ctx.show_veg2.read();
+                let mut s = *ctx.selection.read();
+                match field {
+                    "protein" => { s.protein = Some(ingredient); cascade_from_protein(&mut s, &lock, c, sv2); }
+                    "starch" => { s.starch = Some(ingredient); }
+                    "veg1" => { s.veg1 = Some(ingredient); }
+                    "veg2" => { s.veg2 = Some(ingredient); }
+                    _ => {}
+                }
+                ctx.selection.set(s);
+                ctx.editing.set(None);
+            },
+            "{ingredient.name}"
+        }
+    }
+}
+
+fn reroll_field(field: &'static str, mut ctx: SlotCtx) {
+    let c = *ctx.cuisine.read();
+    let lock = *ctx.locks.read();
+    let sv2 = *ctx.show_veg2.read();
+    let mut s = *ctx.selection.read();
+    let mut rng = rand::thread_rng();
+
+    match field {
+        "protein" => {
+            let list = get_proteins();
+            s.protein = in_cuisine(c, &list).choose(&mut rng).copied();
+            cascade_from_protein(&mut s, &lock, c, sv2);
+        }
+        "starch" => {
+            let list = get_starches();
+            s.starch = pairs_with_protein(s.protein, c, &list, &[])
+                .choose(&mut rng).copied();
+        }
+        "veg1" => {
+            let list = get_vegs();
+            s.veg1 = pairs_with_protein(s.protein, c, &list, &[])
+                .choose(&mut rng).copied();
+        }
+        "veg2" => {
+            let list = get_vegs();
+            let exc: Vec<&str> = s.veg1.map(|v| v.id).into_iter().collect();
+            s.veg2 = pairs_with_protein(s.protein, c, &list, &exc)
+                .choose(&mut rng).copied();
+        }
+        _ => {}
+    }
+    ctx.selection.set(s);
+}
