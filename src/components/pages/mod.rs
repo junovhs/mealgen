@@ -9,7 +9,7 @@ use dioxus::prelude::*;
 #[component]
 pub fn NotFound(segments: Vec<String>) -> Element {
     rsx! {
-        div { style: "min-height: 60vh; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center;",
+        div { style: "min-height: 60vh; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; animation: fadeSlideUp 0.5s ease both;",
             h1 { style: "font-family: var(--font-display); font-size: 8rem; font-weight: 800; color: var(--bg-elevated);",
                 "404"
             }

@@ -12,7 +12,6 @@ pub fn Nav() -> Element {
             }
             div { class: "nav__links",
                 a { class: "nav__link nav__link--active", href: "/", "Generator" }
-                a { class: "nav__link", href: "https://github.com/semmaplabs", target: "_blank", "GitHub" }
             }
         }
     }
@@ -22,10 +21,9 @@ pub fn Nav() -> Element {
 pub fn Footer() -> Element {
     rsx! {
         div { class: "footer-wrapper",
-            div { class: "footer-logo", "MEALGEN" }
             footer { class: "footer",
                 div { class: "footer__bottom",
-                    span { "© 2024 MealGen. Built with Dioxus." }
+                    span { "© 2025 MealGen · Built with Dioxus" }
                 }
             }
         }
