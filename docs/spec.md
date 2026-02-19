@@ -1,379 +1,780 @@
-# MealGen — Spec
+# MealGen — vNext Spec: "Outstanding Meals" + "Chef Notes"
 
-> "Tell Me What's For Dinner"
+> Elevate every Generate into a plate that feels *named*, *intentional*, and *cookable* — without using AI APIs.
 
-MealGen is a single-page meal idea generator built in Rust with Dioxus, compiled to WebAssembly. It answers one question every household asks: *what should we have for dinner tonight?* It does this by generating culinarily coherent combinations of protein, starch, and vegetable(s) drawn from a hand-curated pairing database, filtered by cuisine.
-
----
-
-## 1. Core Concept
-
-The fundamental unit is a **meal**: one protein, one starch, one or two vegetables, all belonging to a shared cuisine and validated against a pairing graph. The app is not a recipe database — it doesn't tell you *how* to cook. It tells you *what* to cook and *what to buy*, then gets out of the way.
-
-### Design Philosophy
-
-MealGen should feel like a slot machine crossed with a sommelier. Every interaction — generating, locking, rerolling, browsing alternatives — should feel tactile, instantaneous, and rewarding. We think about this as a **game loop**:
-
-- **Second-to-second**: Every tap produces visible, satisfying feedback. Buttons compress on press. Cards animate in with staggered timing. The reroll button spins. Locking an ingredient gives it a visible accent border.
-- **Minute-to-minute**: The user builds a meal they're excited about. They lock what they like, reroll what they don't, browse alternatives for fine control. The maître d' description at the top narrates their creation in real time, making the result feel curated rather than random.
-- **Session-to-session**: The pairing data is good enough that users trust the suggestions. Every generated combo should sound like something you'd actually want to eat.
-
-### Non-Goals
-
-- Recipe instructions, cook times, or preparation steps.
-- User accounts, saved meals, or history.
-- Nutritional data or calorie tracking.
-- Grocery list aggregation across multiple meals.
+**Revision history:**
+- v1.0 — Initial spec (ChatGPT Pro)
+- v1.1 — Addendum A/B: Chef Description MVP pull-forward, editorial pipeline (ChatGPT Pro)
+- v2.0 — Full synthesis: protein expansion, protein gap analysis, revised phase order, side-to-side coherence critique
+- v2.1 — Spec audit fixes: phase order contradiction resolved, pairwise gate two-tier model, tag definitions corrected, archetype selection order clarified, coverage assertions added, `small_rng` dependency noted, Phase 0/1 exclusion logic deduplication, manual selection behavior under archetypes specified
 
 ---
 
-## 2. Tech Stack
+## 1. Goals
 
-| Layer | Technology | Why |
+### 1.1 Primary Goal
+Every press of **Generate** yields a combination that:
+- sounds like a *real plate you'd order at a restaurant*,
+- maps cleanly to an established dish archetype (steakhouse, tacos, stir-fry bowl, etc.),
+- includes enough "how to flavor it" guidance that it feels actionable without being a full recipe.
+
+### 1.2 Secondary Goals
+- Keep the "slot machine" feel: instant, tactile, fun.
+- Maintain offline-first: no backend required.
+- Preserve existing locks / rerolls / manual picker UX.
+- Make the chef description the emotional centerpiece of each generation.
+
+---
+
+## 2. Non-Goals (for this iteration)
+- Full step-by-step recipes with timers and temperatures in the UI.
+- Saved meals, history, user accounts.
+- Nutrition or macros.
+- Paid APIs (Spoonacular, Edamam, etc.) in the MVP.
+- AI-generated text (all description is programmatic and table-driven).
+
+---
+
+## 3. Protein Gap Analysis
+
+> **Sequencing note:** Protein expansion (Phase 2) can proceed in parallel with Phase 1 (tags) and Phase 1.5 (Chef Description). You do not need to wait for new proteins before starting the quality engine work. However, `IngredientDescLite` entries for new proteins must exist before Chef Notes ships — treat this as a hard dependency for Phase 6, not Phase 2.
+
+Several cuisines lack their most iconic proteins. The generator cannot produce "outstanding" results when the headlining ingredients are missing.
+
+### 3.1 BBQ / Comfort — Critical Gaps
+
+| Missing Protein | Why It Matters |
+|---|---|
+| Baby Back Ribs / Spare Ribs | *The* definitive BBQ hero. Arguably the first thing most people think of. |
+| Beef Brisket | Central to Texas BBQ, Jewish deli, KC BBQ. Brisket + cornbread is canonical. |
+| Pulled Pork | Low-and-slow shoulder; natural partner for coleslaw and cornbread. |
+| Bratwurst / Hot Links / Smoked Sausage | Cookout staple. Different profile from Italian sausage. |
+| Smoked Turkey Breast | Holiday comfort and BBQ crossover. |
+
+### 3.2 Latin / Mexican — Gaps
+
+| Missing Protein | Why It Matters |
+|---|---|
+| Carnitas | Slow-braised pork; one of the most common taco proteins. Distinct from pork chops/tenderloin. |
+| Carne Asada | Specific marinated grilled beef; the existing steak entry doesn't carry this flavor signal. |
+
+### 3.3 Mediterranean — Gaps
+
+| Missing Protein | Why It Matters |
+|---|---|
+| Lamb Chops / Lamb Shoulder | Lamb is *the* Mediterranean protein hero. Its absence makes Mediterranean feel hollow. |
+
+### 3.4 Asian — Gaps
+
+| Missing Protein | Why It Matters |
+|---|---|
+| Pork Belly | Used in ramen, bao, Korean BBQ. High demand item. |
+| Tofu | Vegetarian anchor; significant portion of users. |
+
+### 3.5 American — Minor Gaps
+
+| Missing Protein | Why It Matters |
+|---|---|
+| Meatloaf | Classic American comfort archetype anchor. |
+
+### 3.6 Implementation Note
+
+New proteins follow the same `ingredient!` macro pattern. Each needs:
+- A `buy_amount` string.
+- `cuisines` pairings — start with the 1-2 cuisines where the protein is archetypal.
+- An `IngredientDescLite` entry before Chef Notes ships (Phase 6 dependency).
+
+---
+
+## 4. Known Data Bugs to Fix (Phase 0)
+
+> **Important:** All meal-validity logic (exclusion groups, redundancy rules) is implemented in Phase 1, not Phase 0. Phase 0 is strictly renames, CSS fixes, and removal of clearly wrong cuisine assignments. Do not implement any rule engine logic in Phase 0.
+
+| Bug | Description | Fix |
 |---|---|---|
-| Language | Rust | Performance, safety, compiles to WASM |
-| UI Framework | Dioxus 0.7 | React-like component model for Rust, first-class WASM support |
-| Rendering | Dioxus web (WASM) | Runs entirely client-side, zero backend |
-| Routing | Dioxus Router | `/` → MealGenerator, `/*` → 404 |
-| Randomness | `rand` 0.8 + `getrandom` (js feature) | Cryptographic RNG seeded from browser |
-| Styling | Static CSS (no preprocessor) | Three files: `base.css`, `components.css`, `slots.css` |
-| Fonts | Google Fonts | Syne (display), Inter (body), IBM Plex Mono (labels), Lora (meal description) |
-| Build Tool | `dx serve` / `dx build` | Dioxus CLI |
-
-### File Structure
-
-```
-mealgen/
-├── index.html                          # Shell: font imports, CSS links, #main div
-├── Cargo.toml                          # Rust deps: dioxus, rand, getrandom, web-sys
-├── Dioxus.toml                         # Build config
-├── public/assets/css/
-│   ├── base.css                        # Variables, reset, nav, layout, footer, keyframes
-│   ├── components.css                  # Buttons, pills, meal description, seasoning, veg toggle
-│   └── slots.css                       # Meal slot cards, lock/reroll buttons, ingredient picker
-├── doc/
-│   └── spec.md                         # This document
-└── src/
-    ├── main.rs                         # App shell, router
-    ├── components/
-    │   ├── mod.rs                      # Declares layout + pages
-    │   ├── layout/
-    │   │   └── mod.rs                  # Nav, Footer
-    │   └── pages/
-    │       ├── mod.rs                  # Declares sub-modules, NotFound page
-    │       ├── meal_generator.rs       # Main MealGenerator component
-    │       ├── meal_types.rs           # Types, constants, all helper/logic fns
-    │       └── meal_slot.rs            # render_slot, render_option, reroll_field
-    └── content/
-        ├── mod.rs                      # Re-exports from meal_data
-        └── meal_data.rs                # Static ingredient database (~13k tokens)
-```
+| CSS syntax error in `slots.css` | Stray declaration block under `.meal-slot__option--incompatible` | Fix immediately |
+| `asian_cabbage_slaw` name | Name creates cognitive dissonance in BBQ and Latin contexts where the slaw is actually correct | Rename to "Cabbage Slaw" in `meal_data.rs` |
+| `ground_turkey` labeled "(taco)" | Name embeds a cooking style; archetype/seasoning handles framing | Rename to "Ground Turkey" |
+| `jasmine_rice` in BBQ | Results in "Pork Chops + Jasmine Rice" — breaks the BBQ flavor signal | Remove from BBQ cuisine pairings entirely |
+| `ground_turkey` in American pairings | Ground turkey is not a natural American dinner protein outside of taco context; creates weird combos | Remove from American cuisine |
 
 ---
 
-## 3. Data Model
+## 5. New Concepts
 
-### 3.1 Ingredient
+### 5.1 Archetype (Dish Template)
 
-Every ingredient is a compile-time `&'static` struct:
+An **archetype** is a named plate pattern that constrains what combinations are considered coherent.
+
+**Asian**
+- `fried_rice_bowl` — fried rice + stir-fry veg + protein
+- `noodle_stir_fry` — noodles + sprouts/crisp veg
+- `rice_and_greens` — jasmine rice + bok choy / broccoli + protein
+- `south_asian_plate` — naan/flatbread + marinated protein + warm veg
+
+**Latin / Mexican**
+- `tacos` — tortillas + fajita veg + fresh side (avocado, cucumber tomato)
+- `fajita_plate` — tortillas + bell peppers + protein
+- `beans_and_rice_plate` — black beans & rice + 1 warm + 1 fresh side
+- `carne_asada_plate` — mexican rice + grilled veg + protein
+
+**American**
+- `steakhouse` — potato starch + green veg + optional salad
+- `sheet_pan_roast` — roasted potato/sweet potato + roasted veg
+- `pasta_night` — pasta + caesar/mixed salad + light veg
+- `breakfast_for_dinner` — egg/bacon + hash browns + simple veg
+- `comfort_bowl` — egg noodles + hearty veg
+
+**BBQ / Comfort**
+- `cookout_plate` — cornbread/biscuits + slaw + legume side
+- `southern_plate` — cornbread + greens + beans
+- `bbq_smoke_plate` — mashed/potato + coleslaw or mac + one hearty side
+- `seafood_cookout` — roasted potatoes + corn + coleslaw
+
+**Mediterranean**
+- `grain_bowl` — couscous/quinoa + roasted veg + protein
+- `mezze_plate` — pita + greek salad + warm veg
+- `pasta_mediterranean` — pasta + roasted tomatoes + zucchini/eggplant
+- `sheet_pan_mediterranean` — roasted potatoes + roasted veg + protein
+
+### 5.2 Ingredient Tags
+
+Defined in `src/content/meta.rs`. Tags power hard rules and scoring. They do not touch the existing `Ingredient` struct.
+
+**Type/Temperature Tags**
+- `cold_side` — salads, slaws, pickled items
+- `hot_veg` — sautéed, roasted, braised vegetables
+- `leafy_green` — spinach, kale, collard greens, bok choy
+- `bitter_green` — kale, brussels sprouts, collard greens (subset of leafy_green)
+- `legume_side` — baked beans, black-eyed peas, edamame
+
+**Starch Role Tags** *(replaces the ambiguous "noodle" tag)*
+- `starch_potato` — mashed, roasted, baked, twice-baked, au gratin, hash browns, sweet potato, fries
+- `starch_rice` — jasmine rice, cilantro lime rice, rice pilaf, black beans & rice, yellow rice, mexican rice
+- `starch_fried_rice` — fried rice only (one-pan mixed dish; differs from plain rice)
+- `starch_noodle` — pasta, egg noodles only
+- `starch_bread` — cornbread, biscuits, bread rolls, garlic bread, naan, pita, tortillas
+
+**Flavor Redundancy Tags**
+- `tomato_forward` — roasted_tomatoes, cucumber_tomato *(note: ratatouille gets `stewed_veg` + `tomato_forward`)*
+- `corn_forward` — corn, elote_corn, succotash
+- `cabbage_forward` — coleslaw, cabbage_slaw, sauteed_cabbage
+
+**Cuisine-Signal Tags**
+- `east_asian_signal` — bok_choy, bean_sprouts, edamame, pickled_vegetables
+- `south_asian_signal` — naan *(do not pair with east_asian_signal veg)*
+- `southern_signal` — collard_greens, cornbread, biscuits, black_eyed_peas
+- `italian_american_signal` — pasta, garlic_bread
+
+**Semantic Exclusion Groups** *(any two items from the same group cannot co-exist on a plate)*
+- `group_corn` — corn, elote_corn
+- `group_salad` — mixed_salad, garden_salad
+- `group_tomato_side` — roasted_tomatoes, cucumber_tomato *(max 1 per plate; ratatouille excluded from this group since it's a full dish)*
+- `group_bitter_green` — kale, brussels_sprouts, collard_greens *(max 1 per plate)*
+- `group_cabbage` — coleslaw, cabbage_slaw, sauteed_cabbage *(max 1 per plate)*
+
+### 5.3 Chef Notes (Flavor Plan)
+
+Short, programmatic "how to make this plate taste like a dish" guidance — driven entirely by static tables in Rust. No AI. Instant. Deterministic per seed.
+
+Output per generated plate:
+- 1 headline: e.g. "Steakhouse Night" or "Baja Tacos"
+- 2–4 short action lines, one per ingredient with a descriptor entry
+
+Example:
+```
+Steakhouse Night
+· Ribeye — sear hard with thyme + roasted garlic; rest 5 min; red wine pan jus
+· Pomme Purée — silky with butter and chives
+· Asparagus — roast hot at 425°F; finish with lemon zest and olive oil
+· Caesar — classic, extra black pepper
+```
+
+### 5.4 Dish Name
+
+A short editorial name generated from the archetype + protein + primary starch/veg:
+- "Hibachi-Style Steak Fried Rice"
+- "Baja Fish Tacos"
+- "Southern Smoked Ribs Plate"
+- "Weeknight Sheet-Pan Salmon"
+- "Steakhouse Ribeye + Pomme Purée"
+
+Displayed above the maître d' description. Acts as the vetting signal — if the meal feels nameable, it feels curated.
+
+---
+
+## 6. Data Model Additions
+
+> Keep existing `Ingredient` static list for pairings. Add parallel metadata tables keyed by `ingredient.id`.
+
+### 6.1 IngredientMeta
 
 ```rust
-pub struct Ingredient {
-    pub id: &'static str,           // e.g. "chicken_breast"
-    pub name: &'static str,         // e.g. "Chicken Breast"
-    pub category: &'static str,     // "protein" | "starch" | "veg"
-    pub buy_amount: Option<&'static str>,  // e.g. "2.5 lbs" (proteins/some starches)
-    pub cuisines: &'static [(&'static str, &'static [&'static str])],
+// src/content/meta.rs
+pub struct IngredientMeta {
+    pub id: &'static str,
+    pub tags: &'static [&'static str],
+    pub exclusion_groups: &'static [&'static str],
+    pub aliases: &'static [&'static str], // for recipe search / dish naming
 }
 ```
 
-The `cuisines` field is the pairing graph. Each entry is `(cuisine_id, &[partner_ids])` — the list of ingredient IDs this ingredient pairs well with in that cuisine. An ingredient can belong to multiple cuisines with different pairing lists per cuisine.
+**Coverage requirement:** `IngredientMeta` must have an entry for every ID in `INGREDIENTS`. Enforce via debug assertion (see Section 6.4).
 
-A macro (`ingredient!`) provides shorthand for static initialization with or without `buy_amount`.
+### 6.2 IngredientDescLite
 
-### 3.2 Categories
+Used for Chef Notes + upgraded maître d' text. Proteins are required; starch/veg use adjective pools for MVP.
 
-| Category | Count (approx) | Has `buy_amount` | Examples |
-|---|---|---|---|
-| `protein` | ~15 | Yes (always) | Chicken Breast (2.5 lbs), Steak (2 lbs), Salmon (2 lbs) |
-| `starch` | ~25 | No | Mashed Potatoes, Fried Rice, Tortillas, Pita Bread |
-| `veg` | ~40 | No | Broccoli, Greek Salad, Roasted Carrots, Collard Greens |
+```rust
+// src/content/desc_lite.rs
+pub struct IngredientDescLite {
+    pub id: &'static str,
+    // (cuisine_id, fancy_name) — e.g. ("american", "ribeye"), ("bbq", "smoked brisket")
+    pub fancy_names: &'static [(&'static str, &'static str)],
+    // (cuisine_id, &[method variants]) — pick 1 using meal_style_seed
+    pub methods: &'static [(&'static str, &'static [&'static str])],
+    // (cuisine_id, &[seasoning combos]) — pick 1 using meal_style_seed
+    pub seasonings: &'static [(&'static str, &'static [&'static str])],
+    // (cuisine_id, &[finish variants]) — pick 1 using meal_style_seed
+    pub finishes: &'static [(&'static str, &'static [&'static str])],
+}
+```
 
-### 3.3 Cuisines
+Generic adjective pools for starches and veg (no per-item tables required for MVP):
+```rust
+pub static STARCH_ADJECTIVES: &[(&str, &[&str])] = &[
+    ("starch_potato", &["silky", "buttery", "golden-crusted", "creamy"]),
+    ("starch_rice",   &["fluffy", "fragrant", "steamed", "lightly seasoned"]),
+    ("starch_noodle", &["al dente", "tossed", "sauced"]),
+    ("starch_bread",  &["warm", "golden", "fresh-baked"]),
+    ("starch_fried_rice", &["wok-tossed", "smoky", "savory"]),
+];
 
-Five cuisine categories, each with an internal ID and display label:
+pub static VEG_ADJECTIVES_HOT: &[&str] = &["roasted", "sautéed", "charred", "caramelized"];
+pub static VEG_ADJECTIVES_COLD: &[&str] = &["crisp", "fresh", "bright", "classic"];
+```
 
-| ID | Label | Flavor Profile |
-|---|---|---|
-| `american` | American | Comfort classics — butter, herbs, ranch, gravy |
-| `latin` | Latin / Mexican | Bright, spicy — lime, chili, cumin, cilantro |
-| `asian` | Asian | Umami-forward — soy, ginger, sesame, sriracha |
-| `mediterranean` | Mediterranean | Fresh, herby — olive oil, lemon, oregano, tzatziki |
-| `bbq` | BBQ / Comfort | Smoky, sweet — paprika, mustard, dry rubs, vinegar |
+**Coverage requirement:** `IngredientDescLite` must cover 100% of protein IDs. Enforce via debug assertion (see Section 6.4).
 
-### 3.4 Seasoning Suggestions
+### 6.3 Archetype Definition
 
-A static lookup table (`SAUCE_SUGGESTIONS`) maps each cuisine to 6–7 seasoning/sauce ideas displayed as pills below the meal. These are editorial suggestions, not part of the pairing graph.
+```rust
+// src/content/archetypes.rs
+pub struct Archetype {
+    pub id: &'static str,
+    pub cuisine: &'static str,
+    pub label: &'static str,       // "Steakhouse", "Tacos" — shown in UI badge
+    pub constraints: ArchetypeConstraints,
+    pub dish_name_templates: &'static [&'static str],
+    pub chef_voice: &'static str,  // "elegant" | "casual" | "bold"
+}
+
+pub struct ArchetypeConstraints {
+    pub starch_must_have_any: &'static [&'static str],  // tag names
+    pub starch_avoid_any: &'static [&'static str],
+    pub veg_prefer_any: &'static [&'static str],
+    pub veg_avoid_any: &'static [&'static str],
+    pub max_cold_sides: u8,
+    pub forbidden_signal_combos: &'static [(&'static str, &'static str)], // tag pairs that cannot coexist
+}
+```
+
+### 6.4 Coverage Assertions
+
+Add to `src/content/meta.rs` and `src/content/desc_lite.rs`:
+
+```rust
+#[cfg(debug_assertions)]
+pub fn assert_meta_coverage() {
+    use crate::content::meal_data::INGREDIENTS;
+    let meta_ids: std::collections::HashSet<&str> =
+        INGREDIENT_META.iter().map(|m| m.id).collect();
+    for ing in INGREDIENTS.iter() {
+        debug_assert!(
+            meta_ids.contains(ing.id),
+            "IngredientMeta missing entry for: {}", ing.id
+        );
+    }
+}
+
+#[cfg(debug_assertions)]
+pub fn assert_desc_coverage() {
+    use crate::content::meal_data::INGREDIENTS;
+    let desc_ids: std::collections::HashSet<&str> =
+        INGREDIENT_DESC_LITE.iter().map(|d| d.id).collect();
+    for ing in INGREDIENTS.iter().filter(|i| i.category == "protein") {
+        debug_assert!(
+            desc_ids.contains(ing.id),
+            "IngredientDescLite missing protein entry for: {}", ing.id
+        );
+    }
+}
+```
+
+Call both from `main()` or app init in debug builds.
+
+### 6.5 MealPlan
+
+Replaces bare `MealSelection` as the output of the quality engine.
+
+```rust
+pub struct MealPlan {
+    pub cuisine: &'static str,
+    pub archetype_id: &'static str,
+    pub selection: MealSelection,
+    pub meal_style_seed: u64,
+
+    // Presentation
+    pub dish_name: Option<String>,
+    pub chef_desc: String,
+    pub chef_notes: Vec<String>,     // 2–4 bullet lines
+    pub recipe_queries: Vec<String>,
+}
+```
+
+### 6.6 Dependency Update
+
+Add `small_rng` feature to `Cargo.toml` for deterministic seeded descriptions:
+
+```toml
+rand = { version = "0.8", features = ["small_rng"] }
+```
+
+Use `rand::rngs::SmallRng::seed_from_u64(seed)` in `describe_meal_chef_lite`. This avoids `StdRng` overhead in WASM.
 
 ---
 
-## 4. Pairing Algorithm
+## 7. Generation v2: Quality Engine
 
-This is the heart of the app. The goal is to produce meals where every ingredient "goes with" every other ingredient.
+### 7.1 Two-Tier Constraint Model
 
-### 4.1 Generation Sequence
+> **Critical design decision:** The existing pairing graph was authored for protein↔side relationships. Starch↔veg edges exist in the data but are *not guaranteed to be complete* across all combinations. Enforcing hard rejection on missing edges would eliminate too many valid candidates and degrade output quality.
+>
+> Therefore: use a **two-tier model**.
 
-Ingredients are chosen in a strict cascade order:
+**Tier 1 — Hard Reject** (missing = rejected):
+- Exclusion group violations (two items from the same group)
+- Explicit cuisine-signal conflicts (e.g., `south_asian_signal` + `east_asian_signal` on same plate)
+- Redundancy tag count violations (> 1 `bitter_green`, > 1 `tomato_forward`, etc.)
+- Archetype starch/veg hard constraints (e.g., `steakhouse` hard-rejects `starch_fried_rice`)
+- `max_cold_sides` exceeded per archetype
 
-1. **Cuisine** — Picked randomly (or kept if locked). All subsequent choices are filtered to this cuisine.
-2. **Protein** — Picked randomly from proteins available in the chosen cuisine.
-3. **Starch** — Picked from starches that pair with the chosen protein in this cuisine.
-4. **Vegetable 1** — Picked from vegs that pair with the chosen protein in this cuisine.
-5. **Vegetable 2** (optional) — Same as veg 1, but excluding veg 1's ID from candidates.
+**Tier 2 — Scored** (missing = neutral, present = bonus):
+- Starch↔veg1 pairing edge exists: +3
+- Starch↔veg2 pairing edge exists: +3
+- Veg1↔veg2 pairing edge exists: +2
+- Missing edges score 0, not negative
 
-This cascade ensures coherence: the protein is the anchor, and everything else is chosen to complement it.
+> **Future work:** If you want a true clique-gate, add a "Graph completion sprint" (Phase 2.5) to editorially add starch↔veg edges across all cuisines. Until then, two-tier is the correct model.
 
-### 4.2 Bidirectional Pairing
+### 7.2 Full Scoring Table
 
-The pairing lookup is **bidirectional**. An ingredient is considered a valid pair if *either* direction declares the relationship:
-
-```
-pairs_with_protein(steak, "american", vegs) includes broccoli if:
-  - steak's american pairs list contains "broccoli", OR
-  - broccoli's american pairs list contains "steak"
-```
-
-This was a critical fix. The original hand-curated data has pairings declared asymmetrically — steak's list might not mention broccoli, but broccoli's list mentions steak. Bidirectional lookup roughly doubles the available options for most combos while keeping all suggestions culinarily sound (every pairing was still hand-authored, just checked in both directions).
-
-### 4.3 Cascade on Protein Change
-
-When the protein changes (via generate, reroll, or manual selection), unlocked downstream slots (starch, veg1, veg2) are automatically re-picked to pair with the new protein. Locked slots are preserved. This prevents stale combos like salmon with cornbread after switching from chicken.
-
-### 4.4 Reroll Behavior
-
-Each slot has an independent reroll button:
-
-- **Protein reroll**: Picks a new random protein, then cascades (re-picks unlocked starch/vegs).
-- **Starch reroll**: Picks a new starch that pairs with the current protein. No cascade.
-- **Veg1 reroll**: Picks a new veg that pairs with the current protein. No cascade.
-- **Veg2 reroll**: Same as veg1, but excludes veg1's ID from candidates.
-
-### 4.5 Manual Selection
-
-Clicking an ingredient name opens a picker panel showing all valid alternatives for that slot in the current cuisine. Selecting a protein from the picker triggers the same cascade as reroll. Selecting a starch or veg is a direct replacement with no cascade.
-
----
-
-## 5. UI Architecture
-
-### 5.1 State
-
-All state lives in Dioxus signals at the `MealGenerator` component level:
-
-| Signal | Type | Purpose |
-|---|---|---|
-| `cuisine` | `Signal<&'static str>` | Current cuisine ID |
-| `cuisine_lock` | `Signal<bool>` | Whether cuisine is locked (vs randomized on generate) |
-| `selection` | `Signal<MealSelection>` | Current protein/starch/veg1/veg2 |
-| `locks` | `Signal<LockState>` | Per-slot lock booleans |
-| `show_veg2` | `Signal<bool>` | Whether the extra vegetable slot is shown |
-| `has_generated` | `Signal<bool>` | Whether the user has generated at least once |
-| `editing` | `Signal<Option<&'static str>>` | Which slot's picker panel is open (if any) |
-
-These are bundled into a `SlotCtx` struct and passed to `render_slot` for ergonomic access without exceeding 5 function parameters.
-
-### 5.2 Component Breakdown
-
-```
-MealGenerator
-├── Header ("Tell Me What's For Dinner", subtitle)
-├── Cuisine Selector (pill buttons + lock toggle)
-├── Generate Button
-├── Meal Description (maître d' text, shown after first generate)
-├── Slot: Protein      ─┐
-├── Slot: Starch        │  Each rendered by render_slot()
-├── Slot: Vegetable     │  with lock, reroll, picker
-├── Slot: Extra Veg    ─┘
-├── Add/Remove Extra Vegetable toggle
-└── Seasoning Ideas (inline pills for current cuisine)
-```
-
-### 5.3 Slot Anatomy
-
-Each meal slot card has:
-
-```
-┌─────────────────────────────────────────┐
-│ PROTEIN                        [◇] [↻] │  ← header: label, keep button, reroll
-├─────────────────────────────────────────┤
-│ Chicken Breast ▾                        │  ← body: name (clickable), arrow
-│ Buy: 2.5 lbs                            │  ← buy amount (proteins only)
-├─────────────────────────────────────────┤
-│ Chicken Breast · Chicken Thighs ·       │  ← picker panel (expandable)
-│ Steak · Salmon · Shrimp · ...           │     shows all valid alternatives
-└─────────────────────────────────────────┘
-```
-
-- **Keep button** (`◇` / `✦`): Toggles lock state. Locked slots survive generate/reroll. Visual: `◇` is hollow/muted when unlocked, `✦` is filled/accented when locked.
-- **Reroll button** (`↻`): Re-picks this slot only (with cascade if protein). Spins on press via CSS `rotate(-45deg)`.
-- **Name click**: Toggles the picker panel open/closed. Arrow `▾` rotates 180° when open.
-- **Picker panel**: Animates open via CSS `max-height` transition. Shows pill buttons for all valid alternatives. Current selection is highlighted with accent color.
-
-### 5.4 Meal Description
-
-After generating, an italic serif paragraph appears between the generate button and the cards:
-
-> *This evening, we present Steak served alongside Potatoes Au Gratin, with a side of Caesar Salad — complemented by Green Beans.*
-
-This uses the Lora font in italic for a menu/maître d' feel. The container has `min-height: 6rem` and uses flexbox centering so that text length changes (2-line vs 4-line) don't cause layout jitter by pushing cards up and down.
-
-### 5.5 Seasoning Section
-
-Displayed inline (always visible, not collapsible) below the meal cards. Shows only the current cuisine's suggestions as small pills. The label reads "Seasoning ideas · American" (or whichever cuisine is active). This replaced an earlier collapsible accordion that hid the suggestions as an afterthought.
-
----
-
-## 6. Visual Design
-
-### 6.1 Color Palette
-
-Warm, appetizing, bright. The opposite of the original dark SEMMAP template.
-
-| Token | Value | Usage |
-|---|---|---|
-| `--bg-root` | `#faf8f5` | Page background (warm off-white) |
-| `--bg-surface` | `#ffffff` | Card backgrounds |
-| `--bg-raised` | `#f5f2ee` | Card headers, inactive pills |
-| `--bg-elevated` | `#ede9e3` | Toggle track, deeper surfaces |
-| `--accent` | `#e85d26` | Primary action color (warm coral-orange) |
-| `--accent-hover` | `#d4521e` | Darker accent for hover states |
-| `--text-primary` | `#2d2a26` | Main text (warm near-black) |
-| `--text-secondary` | `#5e5954` | Supporting text |
-| `--text-dim` | `#b5ada4` | Placeholders, muted UI |
-
-### 6.2 Typography
-
-| Role | Font | Weight | Usage |
-|---|---|---|---|
-| Display | Syne | 800 | Page title, ingredient names |
-| Body | Inter | 400–600 | General text, pills, buttons |
-| Mono | IBM Plex Mono | 500–600 | Labels (PROTEIN, CUISINE), button text |
-| Serif | Lora | 400 italic | Meal description only |
-
-### 6.3 Animation System
-
-All animations use named CSS custom easing variables for consistency:
-
-| Variable | Curve | Feel |
-|---|---|---|
-| `--ease-out` | `cubic-bezier(0.0, 0, 0.2, 1)` | Quick start, gentle stop |
-| `--ease-in-out` | `cubic-bezier(0.4, 0, 0.2, 1)` | Smooth both ways (Material standard) |
-| `--ease-spring` | `cubic-bezier(0.34, 1.56, 0.64, 1)` | Slight overshoot, playful bounce |
-| `--ease-smooth` | `cubic-bezier(0.25, 0.1, 0.25, 1)` | Gentle, natural |
-
-#### Keyframe Animations
-
-| Name | Used For | Behavior |
-|---|---|---|
-| `fadeSlideUp` | Header, cuisine selector, generate button | Fade in + translate up 14px |
-| `fadeIn` | Meal description, seasoning section | Simple opacity |
-| `slotReveal` | Meal slot cards | Fade in + translate up 10px, staggered per card (70ms delay × index) |
-| `popIn` | — (available) | Scale from 0.96 with slight overshoot to 1.008 |
-
-#### Micro-interactions
-
-- **Button press**: `scale(0.98)` with 0.1s duration for snappy tactile feedback.
-- **Reroll press**: `scale(0.9) rotate(-45deg)` — the ↻ visually spins.
-- **Keep/lock press**: `scale(0.9)` — quick squeeze.
-- **Cuisine pill hover**: `translateY(-1px)` — subtle lift.
-- **Generate hover**: `translateY(-2px)` + increased box-shadow — floating up.
-- **Picker panel expand**: CSS `max-height` transition from 0 to 220px over 0.4s.
-- **Picker arrow**: `rotate(180deg)` over 0.3s with spring easing.
-
----
-
-## 7. Responsive Behavior
-
-The app targets a single-column layout at `max-width: 560px`, centered. This works well on both desktop (feels focused, like a card) and mobile (fills the viewport naturally).
-
-At `≤768px`:
-- Nav link spacing reduces.
-- Section padding switches from `var(--space-xl)` to `var(--space-lg)` horizontal.
-- Cuisine pills wrap naturally via flexbox.
-
-There is no hamburger menu, sidebar, or multi-column layout. The app is intentionally narrow and vertically scrollable.
-
----
-
-## 8. Edge Cases & Decisions
-
-| Scenario | Behavior |
+| Rule | Points |
 |---|---|
-| No valid pairs for a slot | Shows "None available" in italics. Can happen if a protein has no pairs in the current cuisine for a given category. |
-| Veg2 same as veg1 | Prevented: veg2 candidate pool always excludes veg1's ID. |
-| All slots locked + generate | Only cuisine randomizes (if unlocked). All ingredient slots keep their current values. The generate button still works but produces the same meal — this is intentional, as the user may want to randomize just the cuisine. |
-| Switching cuisine with locks | Locked slots are preserved even if the ingredient doesn't exist in the new cuisine. This can produce cross-cuisine combos. This is considered acceptable — if the user locked it, they want it. |
-| Picker shows 0 alternatives | The picker panel is empty but still opens. This is rare and only happens with very restrictive cuisine/protein combos. |
-| `buy_amount` missing | Only displayed if `Some(...)`. Starches and vegs generally don't have buy amounts. |
+| Each bidirectional pairing edge between any two selected ingredients | +3 |
+| All four slots pairwise compatible (protein + starch + veg1 + veg2 all connected) | +5 bonus |
+| Starch↔veg1 edge exists | +3 |
+| Starch↔veg2 edge exists | +3 |
+| Veg1↔veg2 edge exists | +2 |
+| Starch matches archetype preferred tags | +4 |
+| Each veg matches archetype preferred tags | +2 |
+| Protein has `IngredientDescLite` entry (ensures chef notes are rich) | +1 |
+| Two `cold_side` items (soft penalty even if under archetype limit) | -3 |
+| Cuisine-signal tag conflicts with archetype's expected signals | -3 |
 
----
+> Store all weights as top-level `const i32` values in `quality_engine.rs`. Never embed magic numbers in scoring logic. This makes tuning fast — change a constant, observe output, repeat.
 
-## 9. Development Governance
+### 7.3 Archetype Selection Order
 
-The project uses **SlopChop** for structural governance. Key constraints:
+Selection always proceeds in this exact order:
 
-| Metric | Limit |
+```
+1. Choose cuisine (locked or random from CUISINES)
+2. Choose protein (locked or random from proteins available in cuisine)
+3. Choose archetype — conditioned on (cuisine, protein, show_veg2)
+   - Filter archetypes to those compatible with the chosen protein
+   - Weight by archetype frequency (equal weights initially; tune later)
+4. Generate N=40 candidates for (starch, veg1, veg2)
+5. Apply Tier 1 hard constraints — reject failures
+6. Score remaining candidates (Tier 2)
+7. Return highest-scoring candidate
+8. Fallback: if 0 pass Tier 1, relax archetype starch/veg preferences (not signal rules);
+   if still 0, use existing cascade and mark meal "Experimental" (optional badge)
+```
+
+**Why protein-before-archetype:** Archetype must be conditioned on protein because certain proteins are archetype-defining (ribs → `bbq_smoke_plate`; tortilla-context protein → `tacos`). Picking archetype first and then filtering proteins risks empty candidate pools.
+
+### 7.4 Reroll Behavior (v2)
+
+- **Protein reroll:** re-run full best-of-N from step 2 (re-pick protein and archetype).
+- **Starch reroll:** optimize starch only, given fixed protein + veg(s) + archetype constraints.
+- **Veg reroll:** optimize that veg slot only, given fixed others + archetype constraints.
+- All rerolls must produce a result: relax soft constraints before giving up.
+
+### 7.5 Manual Selection Under Archetypes
+
+> **Decision required — pick exactly one. This spec chooses Option B.**
+
+| Option | Behavior |
 |---|---|
-| File size | < 2,000 tokens per file |
-| Cognitive complexity | ≤ 15 per function |
-| Nesting depth | ≤ 3 levels |
-| Function arguments | ≤ 5 (use structs to bundle) |
+| A | Manual selection preserves archetype; other unlocked slots re-optimize to satisfy it |
+| **B** *(chosen)* | **Manual selection triggers archetype re-pick conditioned on new full selection; other unlocked slots re-optimize for the new archetype** |
+| C | Manual selection can violate archetype; meal becomes "Experimental" |
 
-The Rust code is linted with strict clippy:
-```
-cargo clippy --all-targets -- -D warnings -W clippy::pedantic
-    -W clippy::unwrap_used -W clippy::expect_used -W clippy::indexing_slicing
-```
+**Rationale for Option B:** It respects user intent (they picked this ingredient for a reason) while keeping the rest of the plate coherent. Option A can produce impossible states if the manually selected ingredient doesn't fit the current archetype. Option C trains users to ignore the archetype system.
 
-No `#[allow(...)]` attributes to silence violations — refactor instead. No `unwrap()`/`expect()` outside tests.
-
-### Known Violations
-
-`meal_data.rs` is ~13,000 tokens, well over the 2,000 token limit. This is the static ingredient database and is a structural exception — splitting a single `&[Ingredient]` const across files requires workarounds. Recommended approach if enforced: split into `proteins.rs`, `starches.rs`, `vegs.rs` and concatenate at the module level.
+**Implementation note:** When a user picks from the ingredient picker:
+1. Update that slot in `MealSelection`
+2. Re-run archetype selection conditioned on the full current selection
+3. Re-optimize all *unlocked* slots under the new archetype
+4. Update `meal_style_seed` to get a fresh chef description
 
 ---
 
-## 10. Provenance & Cleanup History
+## 8. Chef Description v2 (Maître d' Upgrade)
 
-The project originated from a **SEMMAP Labs** website template — a dark-themed developer tools landing page with physics-based jello animations, product cards, workflow diagrams, and stats sections. None of that content is relevant to MealGen.
+### 8.1 Current → Target
 
-### Removed
+**Current:**
+> "This evening, we present Steak served alongside Mashed Potatoes, with a side of Asparagus — complemented by Caesar Salad."
 
-- `src/components/pages/home.rs` — SEMMAP homepage with canvas-based jello physics (`gloo_timers`, `wasm_bindgen`, `web_sys::CanvasRenderingContext2d`). Dead code, not routed.
-- `src/components/pages/sections.rs` — Product/Workflow/Stats/CTA sections about SEMMAP, Talos, DirAnalyze. Only imported by `home.rs`.
-- `public/assets/css/main.css` — Monolithic dark-theme stylesheet with grid overlay, 400+ lines of unused SEMMAP classes. Replaced by `base.css` + `components.css` + `slots.css`.
-- Grid background overlay (`body::before` with CSS grid lines).
-- All references to SEMMAP, Talos, DirAnalyze, semmaplabs GitHub, and jello physics.
-- Neon green accent color (`#e2ff54`), dark palette (`#050507`), monospace-only typography.
+**Target:**
+> "Good evening. Tonight, the Chef presents a dry-aged ribeye, seared hard over cast iron with fresh thyme and roasted garlic — finished with a velvety red wine pan jus. Accompanied by a silky pomme purée with chives, oven-roasted asparagus brightened with lemon zest, and a classic Caesar with Parmigiano-Reggiano. Bon appétit."
 
-### Kept
+### 8.2 Assembly Logic
 
-- Dioxus framework, router, project structure.
-- Font imports (Syne, Inter, IBM Plex Mono — added Lora).
-- Core meal generation logic and pairing data.
-- `ingredient!` macro system.
+```
+describe_meal_chef_lite(plan, seed) -> String:
+
+1. Seed SmallRng from plan.meal_style_seed
+2. Look up protein in INGREDIENT_DESC_LITE
+3. Select method, seasoning, finish using seeded RNG
+4. Compose protein_phrase: "{fancy_name}, {method} with {seasoning} — {finish}"
+5. For each side (starch, veg1, veg2):
+   - Look up starch role tag → select adjective from STARCH_ADJECTIVES pool
+   - Check hot_veg / cold_side tag → select from VEG_ADJECTIVES_HOT or VEG_ADJECTIVES_COLD
+   - If descriptor entry exists: use specific phrase; else: "{adjective} {ingredient.name}"
+6. Select archetype voice template from plan.archetype chef_voice field:
+   - "elegant": "Good evening. Tonight, the Chef presents {protein_phrase}. Accompanied by {starch_phrase}, {veg1_phrase}{, and {veg2_phrase}}. Bon appétit."
+   - "casual": "Tonight: {protein_phrase}, with {starch_phrase} and {veg1_phrase}."
+   - "bold": "Get ready. {protein_phrase}. Paired with {starch_phrase} and {veg1_phrase}."
+7. Fallback: existing describe_meal() output if protein missing from INGREDIENT_DESC_LITE
+```
+
+### 8.3 Deterministic Variation
+
+- `meal_style_seed: Signal<u64>` stored in `MealGenerator` state.
+- Updated on: Generate, Reroll, manual selection confirm.
+- Same seed + same meal = same description on every render. No flickering.
+- Generate seed via `rand::random::<u64>()` at generation time.
 
 ---
 
-## 11. Future Considerations
+## 9. Chef Notes (Inline Flavor Guidance)
 
-These are ideas discussed but not yet implemented:
+### 9.1 Replace Seasoning Pills
 
-- **Shake animation on reroll** — Brief horizontal shake on the card when content swaps, reinforcing that something changed.
-- **Text crossfade on description** — Smooth opacity transition when the maître d' text updates, rather than an instant swap.
-- **Lock snap animation** — A brief scale pulse or glow when toggling the keep state.
-- **Grocery list mode** — Aggregate `buy_amount` values across a week of meals.
-- **Share meal** — Copy a formatted text summary to clipboard.
-- **Cuisine weighting** — Let users mark preferred cuisines so random selection skews toward their taste.
-- **Seasonal ingredients** — Tag vegs as spring/summer/fall/winter and filter by current month.
-- **meal_data.rs split** — Break the 13k-token ingredient database into per-category files to satisfy the 2,000-token governance limit.
+Current `SAUCE_SUGGESTIONS` is cuisine-level and disconnected from what was actually generated. Replace with per-ingredient bullets.
+
+### 9.2 Format
+
+```
+[Archetype label]
+· [Protein name] — [method]; [finish]
+· [Starch name] — [adjective phrase]
+· [Veg1 name] — [method]; [finish or brief note]
+· [Veg2 name] — [brief phrase]  (if present)
+```
+
+Example (Steakhouse / American / Steak + Mashed + Asparagus + Caesar):
+```
+Steakhouse Night
+· Ribeye — sear hard on cast iron; rest 5 min; deglaze with red wine for pan jus
+· Mashed Potatoes — finish with cold butter and chives; season aggressively
+· Asparagus — roast at 425°F; finish with lemon zest and good olive oil
+· Caesar — classic dressing; fresh Parm; extra cracked black pepper
+```
+
+---
+
+## 10. Recipe Finder (No Backend Required)
+
+After generating a meal the user likes, provide search launch buttons that open external links. Treat domains as configurable constants — do not hardcode URLs in logic.
+
+```rust
+// src/content/recipe_sites.rs (or top of quality_engine.rs)
+pub const RECIPE_SEARCH_GOOGLE: &str = "https://www.google.com/search?q=";
+pub const RECIPE_SEARCH_YOUTUBE: &str = "https://www.youtube.com/results?search_query=";
+pub const RECIPE_SEARCH_SERIOUS_EATS: &str = "https://www.seriouseats.com/search?q=";
+
+pub fn build_recipe_query(plan: &MealPlan) -> String {
+    if let Some(ref name) = plan.dish_name {
+        format!("{} recipe", name)
+    } else {
+        let p = plan.selection.protein.map(|p| p.id).unwrap_or("");
+        let c = cuisine_label(plan.cuisine);
+        format!("{} {} recipe", p, c)
+    }
+}
+```
+
+Links open via `web_sys::Window::open_with_url` or plain anchor tags with `target="_blank"`.
+
+---
+
+## 11. Editorial Work Plan (Descriptor Tables)
+
+This is the largest single effort item — roughly 60-70% of Phase 1.5 + Phase 6 total work. Treat it as a content production sprint.
+
+### 11.1 Minimum Viable Coverage
+
+| Category | MVP Target (Phase 1.5) | Full Target (Phase 6) |
+|---|---|---|
+| Proteins | 100% — all proteins × applicable cuisines | 100% including new proteins from Phase 2 |
+| Starches | Adjective pool only (no per-item tables) | Top 12 with specific phrases |
+| Vegetables | Adjective pool only | Top 20 with specific phrases |
+
+### 11.2 Per-Protein Deliverables
+
+For each protein × applicable cuisine:
+- 3 method variants
+- 5 seasoning combos (mix of simple and specific)
+- 3 finish variants
+- 1–2 cuisine-specific fancy names
+
+### 11.3 Voice Guide
+
+- Sentences are short, active, imperative
+- **Allowed:** specific ingredient names (thyme, not just "herbs"), temperature cues (high heat, low and slow), texture cues (silky, crispy, charred)
+- **Banned:** vague adjectives ("delicious", "amazing"), passive voice, more than 15 words per bullet
+- **Never write:** ingredient-method contradictions — no "braised shrimp", no "slow-roasted Caesar", no "seared tuna noodle soup"
+
+### 11.4 Sanity Harness
+
+Build before shipping Chef Notes to production:
+
+```rust
+#[cfg(debug_assertions)]
+fn dump_sample_descriptions(n: usize) {
+    let mut rng = rand::thread_rng();
+    for _ in 0..n {
+        // generate random MealPlan, print chef_desc and chef_notes
+        // scan output manually for: duplicates, awkward phrases, contradictions
+    }
+}
+```
+
+### 11.5 Acceptance Criteria for Descriptors
+
+- 200-sample dump yields < 5 outputs requiring rewrite.
+- Zero ingredient-method contradictions in sample.
+- At least 60% of generated meals feel "named" or plausibly restaurant-like.
+
+---
+
+## 12. UI Changes
+
+### 12.1 New Elements
+
+- **Archetype Badge** — small tag near cuisine selector: "Steakhouse", "Tacos", "Noodle Bowl"
+- **Dish Name** — displayed above the maître d' paragraph (when available)
+- **Chef Notes section** — replaces seasoning pills; 2–4 ingredient-specific bullets
+- **"Find a Recipe" buttons** — appear below Chef Notes (Phase 7, optional)
+
+### 12.2 Updated Maître d' Area Layout
+
+```
+[Generate Button]
+[Dish Name — e.g. "Steakhouse Ribeye Night"]    ← new
+[Archetype badge — "Steakhouse"]                ← new
+[Maître d' description paragraph — richer prose]
+[Slot cards]
+[Chef Notes bullets — 2–4 lines]               ← replaces seasoning pills
+[Find a Recipe buttons — optional]             ← new (Phase 7)
+```
+
+### 12.3 Preserved Elements
+
+- Cuisine selector, pills, lock toggle
+- Slot cards with lock, reroll, picker
+- Veg2 toggle
+
+---
+
+## 13. Engineering Plan / Phases
+
+> **Goal:** shippable at the end of each phase. No big-bang releases.
+
+### Phase 0 — Hygiene Only *(renames + CSS fixes, NO logic changes)*
+
+- [ ] Fix CSS syntax error in `public/assets/css/slots.css`
+- [ ] Rename "Cabbage Slaw" in `meal_data.rs` (was "Asian Cabbage Slaw")
+- [ ] Rename "Ground Turkey" (remove "(taco)")
+- [ ] Remove `jasmine_rice` from BBQ cuisine pairings
+- [ ] Remove `ground_turkey` from American cuisine pairings
+
+### Phase 1 — Ingredient Tags + Redundancy Rules *(first quality win)*
+
+- [ ] Add `src/content/meta.rs`
+  - [ ] `IngredientMeta` struct + static table for all current ingredients
+  - [ ] `has_tag(id, tag) -> bool`
+  - [ ] `exclusion_group(id) -> &[&str]`
+  - [ ] `assert_meta_coverage()` debug assertion
+- [ ] Implement `check_plate_rules(selection: &MealSelection) -> bool`:
+  - [ ] No two items from same exclusion group
+  - [ ] `bitter_green` count ≤ 1
+  - [ ] `tomato_forward` count ≤ 1
+  - [ ] `corn_forward` count ≤ 1 (catches corn + elote, corn + succotash)
+  - [ ] `east_asian_signal` + `south_asian_signal` never co-occur
+  - [ ] `italian_american_signal` + `southern_signal` never co-occur (pasta + collard greens)
+- [ ] Wire `check_plate_rules` into generation cascade and reroll handlers
+- [ ] Tests: verify each exclusion group rule fires correctly
+
+### Phase 1.5 — Chef Description MVP *(highest leverage, pull forward)*
+
+- [ ] Add `src/content/desc_lite.rs`
+  - [ ] `IngredientDescLite` struct
+  - [ ] Full table for all 15 existing proteins × applicable cuisines
+  - [ ] `STARCH_ADJECTIVES` and `VEG_ADJECTIVES_*` pools
+  - [ ] `assert_desc_coverage()` debug assertion
+- [ ] Add `meal_style_seed: Signal<u64>` to `MealGenerator` state
+- [ ] Update seed on Generate, Reroll, manual selection confirm
+- [ ] Implement `describe_meal_chef_lite(plan, seed) -> String`
+- [ ] Keep `describe_meal()` as fallback
+- [ ] Show dish name area in UI (placeholder if archetype not yet shipping)
+- [ ] Run 200-sample sanity dump; iterate on awkward outputs
+
+### Phase 2 — Protein Expansion *(can run in parallel with Phase 1)*
+
+- [ ] Add to `meal_data.rs`:
+  - [ ] BBQ: Baby Back Ribs, Beef Brisket, Pulled Pork, Smoked Sausage/Hot Links, Smoked Turkey
+  - [ ] Latin: Carnitas, Carne Asada
+  - [ ] Mediterranean: Lamb Chops
+  - [ ] Asian: Pork Belly, Tofu
+  - [ ] American: Meatloaf (optional)
+- [ ] Add pairing data for all new proteins
+- [ ] Add `IngredientMeta` entries (required — assert_meta_coverage will catch omissions)
+- [ ] Add `IngredientDescLite` entries (required before Phase 6 ships)
+
+### Phase 3 — Pairwise Coherence Gate *(Tier 2 scoring)*
+
+- [ ] Add `pairs_any_direction(a_id, b_id, cuisine) -> bool`
+- [ ] Add `meal_pairwise_score(selection, cuisine) -> i32` (sums edge scores)
+- [ ] Update generation to filter by `check_plate_rules` first, then score
+- [ ] Verify fallback fires cleanly when no candidates pass Tier 1
+
+### Phase 4 — Best-of-N Quality Engine
+
+- [ ] Create `src/components/pages/quality_engine.rs`
+  - [ ] Scoring weight constants at top of file
+  - [ ] `score_meal(selection, cuisine, archetype_id) -> i32`
+  - [ ] `generate_candidate_meal(...) -> Option<MealSelection>`
+  - [ ] `generate_best_meal(n: usize, ...) -> MealSelection`
+- [ ] `N = 40` default; store as `const usize CANDIDATE_N: usize = 40`
+- [ ] Replace `cascade_from_protein` with best-of-N in `generate_meal` handler
+- [ ] Update reroll handlers to use local best-of-N
+
+### Phase 5 — Archetypes (Dish-Family Coherence)
+
+- [ ] Add `src/content/archetypes.rs` with full static definitions
+- [ ] Add `archetype: Signal<&'static str>` to `MealGenerator` state
+- [ ] Implement archetype selection (cuisine → protein → archetype)
+- [ ] Enforce archetype constraints in Quality Engine (Tier 1 hard constraints)
+- [ ] Display archetype badge in UI
+- [ ] Implement manual-selection-triggers-archetype-repick (Option B from Section 7.5)
+- [ ] Implement `describe_meal_chef()` full version with archetype voice templates
+
+### Phase 6 — Chef Notes UI + Full Descriptor Tables
+
+- [ ] Replace seasoning pills section with Chef Notes bullets
+- [ ] Display dish name above maître d' paragraph
+- [ ] Expand `desc_lite.rs` to cover top 12 starches and top 20 vegetables
+- [ ] Run final 200-sample sanity dump; fix any remaining awkward outputs
+
+### Phase 7 — Recipe Finder (Optional)
+
+- [ ] Add `build_recipe_query(plan) -> String` to quality_engine or separate module
+- [ ] Add configurable domain constants
+- [ ] Add "Find a Recipe" / "Search YouTube" buttons in UI
+- [ ] Open links via `web_sys::Window::open_with_url`
+
+---
+
+## 14. File / Module Map
+
+```
+src/
+├── content/
+│   ├── meal_data.rs         # existing ingredient + pairing graph (add new proteins here)
+│   ├── meta.rs              # NEW: IngredientMeta, tags, exclusion groups, coverage assertion
+│   ├── archetypes.rs        # NEW: Archetype definitions + constraints
+│   └── desc_lite.rs         # NEW: IngredientDescLite, adjective pools, coverage assertion
+└── components/pages/
+    ├── quality_engine.rs    # NEW: best-of-N, scoring constants, plate rules
+    ├── meal_types.rs        # existing types; add MealPlan
+    ├── meal_generator.rs    # add meal_style_seed, archetype signal
+    └── meal_slot.rs         # minimal changes; update manual selection to trigger archetype repick
+
+public/assets/css/
+├── variables.css
+├── animations.css
+├── base.css
+├── components.css           # add: .archetype-badge, .dish-name, .chef-notes
+├── slots.css                # fix CSS bug (Phase 0)
+└── mobile-slots.css
+```
+
+---
+
+## 15. Acceptance Criteria
+
+### Quality
+- Double salads, corn-on-corn, tomato-on-tomato: never appear.
+- BBQ meals never include jasmine rice.
+- Signal conflicts (naan + bok choy, pasta + collard greens): never appear.
+- At least 80% of generated meals can be given a recognizable dish archetype name.
+
+### Chef Description
+- Every meal with a protein produces a chef-styled description.
+- Description is stable across renders; only changes on user-initiated events.
+- No ingredient-method contradictions in 200-sample test.
+- Tone is consistent and not purple.
+
+### UX
+- Generate remains subjectively instant (best-of-N in WASM must be imperceptible).
+- Locks, rerolls, and manual selection behave predictably and consistently.
+- Chef Notes are ingredient-specific, not generic cuisine filler.
+- Manual selection triggers coherent archetype re-pick, not broken state.
+
+### Maintainability
+- No function exceeds cognitive complexity 15.
+- No function exceeds 5 arguments.
+- New proteins added to `meal_data.rs` are caught by coverage assertions if `meta.rs` or `desc_lite.rs` is not updated.
+- All scoring weights are named `const` values.
+
+---
+
+## 16. Appendix: Sample Target Output
+
+**Generated:** Steak / American / Steakhouse archetype / Mashed Potatoes + Asparagus + Caesar
+
+```
+                    Steakhouse Night  [badge]
+
+  "Good evening. Tonight, the Chef presents a dry-aged ribeye, seared 
+   hard over cast iron with fresh thyme and roasted garlic — finished 
+   with a velvety red wine pan jus. Accompanied by a silky pomme purée 
+   with chives, oven-roasted asparagus brightened with lemon zest, and 
+   a classic Caesar with Parmigiano-Reggiano. Bon appétit."
+
+  · Ribeye — sear hard on cast iron; rest 5 min; deglaze for pan jus
+  · Mashed Potatoes — finish with cold butter and chives
+  · Asparagus — roast at 425°F; lemon zest + olive oil to finish
+  · Caesar — fresh Parm; extra cracked black pepper
+
+  [Find a Recipe ↗]   [YouTube ↗]
+```
+
+---
+
+*v2.1 — Last updated 2026-02-19. Incorporates: multi-session AI code review, 100+ sample generation analysis, protein gap analysis, and 8-point spec audit.*
